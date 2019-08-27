@@ -7,8 +7,8 @@ public class Run {
 		/*ThreadA a=new ThreadA(service);
 		a.start();
 		ThreadB b=new ThreadB(service);
-		b.start();
-*/
+		b.start();*/
+
 		
 		ThreadA[] a=new ThreadA[10];
 		ThreadB[] b=new ThreadB[10];

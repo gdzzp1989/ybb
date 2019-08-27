@@ -8,10 +8,11 @@ import java.sql.Statement;
 public class StatementDemo {
 	
 	//public static final String DRIVER="oracle.jdbc.driver.OracleDrive";
-	//public static final String DRIVER="com.microsoft.sqlserver.jdbc.SQLServerDriver";
-	public static final String DRIVER="org.gjt.mm.mysql.Driver";
-	public static final String URL="jdbc:mysql://localhost:3306/newsql";
-	public static final String USERNAME="root";
+	public static final String DRIVER="com.microsoft.sqlserver.jdbc.SQLServerDriver";
+	//public static final String DRIVER="org.gjt.mm.mysql.Driver";
+	public static final String URL="jdbc:sqlserver://192.168.0.103:1433;DatabaseName=ylyy";
+	public static final String USERNAME="miyuanylyy";
+	public static final String PASSWORD="ittest1qaz";
 	
 	public static void main(String[] args) throws Exception {
 		Connection conn=null;
@@ -19,7 +20,8 @@ public class StatementDemo {
 		PreparedStatement  pstmt=null;
 		
 		Class.forName(DRIVER);
-		conn=DriverManager.getConnection(URL,USERNAME,USERNAME);
+		DriverManager.deregisterDriver(DriverManager.getDrivers().nextElement());
+		conn=DriverManager.getConnection(URL,USERNAME,PASSWORD);
 		
 		String sql="insert into newtable(name) values('zzp')";	
 		stmt=conn.createStatement();

@@ -1,4 +1,4 @@
-package net;
+package cn.ybb.net;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;

@@ -1,4 +1,4 @@
-package net;
+package cn.ybb.net;
 
 import java.io.InputStream;
 import java.net.URL;
