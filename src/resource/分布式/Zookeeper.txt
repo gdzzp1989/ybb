@@ -1,0 +1,138 @@
+~~Zookeeper：分布式协调服务，它的职责是保证数据在其管辖下的所有服务之间保持同步、一致
+
+~~启动命令
+  cd /usr/local/zookeeper-3.4.12/bin/
+  启动ZK服务:      zkServer.sh start
+  查看ZK服务状态:  zkServer.sh status
+  停止ZK服务:      zkServer.sh stop
+  重启ZK服务:      zkServer.sh restart
+
+~~注册中心：给客户端提供可供调用的服务列表，客户端在进行远程服务调用时，根据服务列表然后选择服务提供方的服务地址进行服务调用。服务注册中心在分布式系统中大量应用，
+	 是分布式系统中不可或缺的组件，例如rocketmq的name server，hdfs中的namenode，dubbo中的zk注册中心，spring cloud中的服务注册中心eureka和consul。
+  
+  Zookeeper：保证CP
+  Eureka：保证AP
+  consul：保证CA
+  etcd：保证CP
+  Redis：
+
+           	Consul			zookeeper		etcd			euerka
+服务健康检查	服务状态,内存,硬盘等	(弱)长连接，keepalive	连接心跳		可配支持
+多数据中心	支持			—			—			—
+kv存储服务	支持			支持			支持			—
+一致性		raft			zab协议			raft			—
+cap		ca			cp			cp			ap
+使用接口	支持http和dns		客户端（Curator）	http/grpc		http（sidecar）
+watch支持	全量/支持long polling	支持			支持 long polling	支持 long polling/大部分增量
+自身监控	metrics			—			metrics			metrics
+安全		acl /https		acl			https支持（弱）		—
+spring cloud集成 已支持			已支持			已支持			已支持
+
+
+~~Zookeeper四种类型的znode
+  1、PERSISTENT-持久化目录节点:客户端与zookeeper断开连接后，该节点依旧存在 
+  2、PERSISTENT_SEQUENTIAL-持久化顺序编号目录节点:客户端与zookeeper断开连接后，该节点依旧存在，只是Zookeeper给该节点名称进行顺序编号 
+  3、EPHEMERAL-临时目录节点:客户端与zookeeper断开连接后，该节点被删除 
+  4、EPHEMERAL_SEQUENTIAL-临时顺序编号目录节点:客户端与zookeeper断开连接后，该节点被删除，只是Zookeeper给该节点名称进行顺序编号
+
+
+~~Zookeeper的znode属性
+   cZxid：创建节点的事务的zxid
+   mZxid：对znode最近修改的zxid
+   ctime：以距离时间原点(epoch)的毫秒数表示的znode创建时间
+   mtime：以距离时间原点(epoch)的毫秒数表示的znode最近修改时间
+   ataVersion：znode数据的修改次数
+   cversion：znode子节点修改次数
+   aclVersion：znode的ACL（访问控制）修改次数
+   dataLength：znode数据长度。
+   numChildren：znode子节点个数。
+   ephemeralOwner：如果znode是临时节点，则指示节点所有者的会话ID；如果不是临时节点，则为零。
+
+~~zookeeper客户端的连接状态
+   KeeperState.Expired: 客户端和服务器在ticktime的时间周期内，是要发送心跳通知的。这是租约协议的一个实现。客户端发送request，
+			告诉服务器其上一个租约时间，服务器收到这个请求后，告诉客户端其下一个租约时间是哪个时间点。
+			当客户端时间戳达到最后一个租约时间，而没有收到服务器发来的任何新租约时间，
+			即认为自己下线（此后客户端会废弃这次连接，并试图重新建立连接）。这个过期状态就是Expired状态
+   KeeperState.Disconnected: 就像上面那个状态所述，当客户端断开一个连接（可能是租约期满，也可能是客户端主动断开）这是客户端和服务器的连接就是Disconnected状态
+   KeeperState.SyncConnected: 一旦客户端和服务器的某一个节点建立连接（注意，虽然集群有多个节点，但是客户端一次连接到一个节点就行了），
+			      并完成一次version、zxid的同步，这时的客户端和服务器的连接状态就是SyncConnected
+   KeeperState.AuthFailed：zookeeper客户端进行连接认证失败时，发生该状态
+
+
+~~zookeeper是支持ZkClient和apache Curator两种java客户端
+
+~~zookeeper中的事件(当zookeeper客户端监听某个znode节点”/node-x”时)
+   EventType.NodeCreated：当node-x这个节点被创建时，该事件被触发
+   EventType.NodeChildrenChanged：当node-x这个节点的直接子节点被创建、被删除、子节点数据发生变更时，该事件被触发。
+   EventType.NodeDataChanged：当node-x这个节点的数据发生变更时，该事件被触发
+   EventType.NodeDeleted：当node-x这个节点被删除时，该事件被触发。
+   EventType.None：当zookeeper客户端的连接状态发生变更时，即KeeperState.Expired、KeeperState.Disconnected、KeeperState.SyncConnected、KeeperState.AuthFailed状态切换时，描述的事件类型为EventType.None
+
+~~注册监听(实现watcher接口，process回调函数)，原生API
+   zk.getChildren(path, watch)
+   zk.exists(path, watch)
+   zk.getData(path, watcher, stat)
+   zk.register(watcher)注册默认监听。
+
+~~Zookeeper通知机制(watcher事件通知器)
+   client端会对某个znode建立一个watcher事件，当该znode发生变化时，这些client会收到zk的通知，然后client可以根据znode变化来做出业务上的改变等。
+
+
+~~Zookeeper的节点权限（可在创建时建立）
+  IP:ip模式通过ip地址粒度进行权限控制模式，例如配置了：192.168.110.135即表示权限控 制都是针对这个ip地址的，同时也支持按网段分配，比如：192.168.110.*
+  Digest:digest是最常用的权限控制模式，也更符合我们对权限控制的认识，其类似于 "username:password"形式的权限标识进行权限配置。ZK会对形成的权限标识先后进行两次编码处理，SHA-1加密算法和Base64编码。
+  World：World是一直最开放的权限控制模式。它下面只有一个id, 叫anyone, world:anyone代表任何人。
+  Super：超级用户模式，在超级用户模式下可以对ZK任意进行操作。
+
+
+~~Zookeeper工作原理
+    zab协议：支持崩溃恢复的原子广播协议，基于该协议，zk实现了一种主备模式的系统架构来保持集群中各副本之间数据的一致性
+	   ZAB协议包括两种基本的模式，分别是崩溃恢复和消息广播。
+	      当整个服务框架在启动过程中，或是当Leader服务器出现网络中断崩溃退出与重启等异常情况时，ZAB就会进入恢复模式并选举产生新的Leader服务器。
+              当选举产生了新的Leader服务器，同时集群中已经有过半的机器与该Leader服务器完成了状态同步之后，ZAB协议就会退出崩溃恢复模式，进入消息广播模式。
+    Zookeeper采用Zab没用paxos因为Paxos保证不了全序顺序
+      全序：如果消息a在消息b之前发送，则所有Server应该看到相同的结果
+      因果顺序：如果消息a在消息b之前发生（a导致了b），并被一起发送，则a始终在b之前被执行。
+
+~~集群部署
+    leader节点负责写消息，follow节点负责读消息
+    //Leader
+	1).接收客户端的request请求
+	2).将会修改同步数据的request请求 转化为proposal，并保存.
+	3).向所有的follower发送proposal。
+	4).接收follower的ack。
+	5).统计收到的ack，如果某一个proposal的ack超过了半数，那么向所有follower发送commit 信令，并向所有observer发送inform信令，执行这个proposal的动作。
+	6).leader自己执行已经被commit的proposal所对应的操作，并回复结果
+
+   //Follower：主要负责批准或否决leader提出的proposal。Follower的主要逻辑处理如下：
+	1). 发现leader。
+	2). 建立与leader的连接。
+	3). 向leader注册。(leader activation)
+	4). 与leader进行同步。
+	5). 无限循环
+    ---读取从leader处接收到的信令。
+    ---处理从leader处接收到的信令。
+    A). 如果是PROPOSAL信令（写请求），将此信令投递到FollowerZooKeeperServer的synProcessor。主要作用是回复leader一个ack。
+    B). 如果是COMMIT信令，将此信令投递到FollowerZooKeeperServer的commitProcessor。最终执行FollowerZooKeeperServer的commit函数。
+    C). 如果是SYNC信令，将此信令投递到FollowerZooKeeperServer的commitProcessor。commitProcessor直接将此信令转发给FinalRequestProcessor，将sync信令带的内容写入持久层
+ 
+   //Observer 只学习不参与选举，是为了保证提案选举的性能不会随着zookeeper集群规模扩大而降低（参与投票的节点越多，每一次投票花费的事件就越多）（3.3.0增加）
+     observer：学习已经被commit的proposal的结果，然后执行相应的操作。Observer主要处理逻辑：
+	1). 发现leader。
+	2). 连接到leader上，建立TCP连接。
+	3). 与leader进行同步，同步leader上已经被commit的proposal。
+	4). 无限循环，读取接收到得信令，处理信令。
+		a). 如果是syn信令，调用ObserverZooKeeperServer的syn函数，投递到commitProcessor中。
+		b). 如果是info信令，同样调用ObserverZooKeeperServer的commit函数，投递到commitProcessor中
+
+~~Zookeeper快速选举算法(总共三种算法)
+   节点能够获得 N / 2 + 1 的票数成为leader（所以工作节点少于N / 2 + 1会崩溃）
+
+
+~~zookeeper创建分布式锁的步奏
+  1.client调用create()方法创建“/root/lock_”节点，注意节点类型是EPHEMERAL_SEQUENTIAL。
+  2.client调用getChildren("/root/lock_",false)来获取所有已经创建的子节点，这里并不注册任何Watcher。
+  3.客户端获取到所有子节点Path后，如果发现自己在步骤1中创建的节点是所有节点中最小的，那么就认为这个客户端获得了锁。
+  4.如果在步骤3中，发现不是最小的，那么找到比自己小的那个节点，然后对其调用exist()方法,并注册事件监听移除事件。
+  5.之后一旦这个被关注的节点移除，客户端会收到相应的通知，这个时候客户端需要再次调用getChildren("/root/lock_",false)来确保自己是最小的节点，然后进入步骤3。 
+

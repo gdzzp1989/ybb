@@ -1,0 +1,169 @@
+~~微服务是系统架构上的一种设计风格，将一个原本独立的系统拆分成多个小型服务，这些小型服务在各自独立的进程中运行
+  服务之间通过基于HTTP的RestFul API 进行通信
+
+
+~~Spring Cloud Eureka:服务治理，微服务实例的自动化注册和发现
+   SpringBoot方式开启Eureka：@EnableEurekaServer注解，
+                             高可用搭建：多个Eureka搭建
+
+   服务提供端开启：@EnableDiscoveryClient(原理：使用Rest方式发起注册请求，向Eureka传入元数据(名称，ip，端口等信息))
+                健康检查：使用Actuator的/info和/health节点(也在元数据中)
+   服务消费端：使用Ribbon（基于Http和Tcp的客户端负载均衡器）来消费，Ribbon的ribbonServerList可以被扩展成从Eureka获取服务端列表，
+           实现对服务实例的选择策略（高可用情况下）		 
+	   Eureka提供了region和zone两个概念来进行分区，一个region有多个zone，Ribbon的策略是优先访问和客户端同一zone的服务端实例
+           @EnableDiscoveryClient开启注册为客户端
+           RestTemplate用来实现调用(可用@LoadBalanced实现负载均衡)
+
+~~Spring Cloud Ribbon:客户端的负载均衡(客户端维护着要访问的服务者清单，与服务端的负载均衡不同)
+   客户端使用@LoadBalanced修饰RestTemplate
+      GET请求
+         getForEntity：对Http请求响应的封装（包括状态码，头信息，boby等）
+	 getForObject：只包含body信息
+      POST请求
+         postForEntity：
+	 postForObject：
+	 postForLocation：返回URL对象
+      PUT
+         put
+      DELETE
+         delete
+   实现负载均衡的原理：通过LoadbalancerInteceptor拦截器对RestTemplate的请求拦截，并利用Spring Cloud的
+                       负载均衡器LoadBalancerClient接口（具体RibbonLoadBalancerClient实现类）将逻辑服务URL转换成具体的实例地址，
+		       调用时使用了Ribbon的IloadBalancer接口
+   实现负载均衡的过程（IloadBalancer原理分析）；
+   负载均衡策略：轮询
+		 权重
+		 随机
+   重试机制
+   
+   Ribbon的配置：配置负载均衡策略，实例检查策略，@Configuration类来配置（Camden版本增加了配置文件配置），
+                 与Eureka结合会自动触发Eureka对Ribbon的自动化配置
+
+~~Spring Cloud Hystrix：服务容错保护，实现了断路器，线程隔离等
+    客户端开启：@EnableCircuitBeaker或@SpringCloudApplication(包含了@EnableCircuitBreaker)注解在主类上
+    客户端Hystrix命令使用：默认2000ms
+	1.业务类(有RestTemplate的类)继承HystrixCommand类，
+	      可以同步也可以异步(future)
+	      重写getFallBack：定义降级
+	      重写getCacheKey：定义结果缓存
+
+	2.注解开启：@HystrixCommand注解在方法上，
+	      可以同步也可以异步(future)
+	   参数：fallbackMethod="XXX" 降级方法
+	         ignoreException 降级忽略的异常
+   
+   工作流程: 
+       1.构建HystrixCommand对象（返回单个操作）或HystrixObsercableCommand（返回多个操作）对象，命令模式（解决命令的请求者和命令的实现者之间的耦合关系）
+       2.命令执行：使用了RxJava
+       3.结果是否被缓存
+       4.断路器是否打开
+       5.线程池/请求队列/信号量是否占满
+       6.HystrixCommand.run()或HystrixObsercableCommand.construct()
+       7.计算断路器的健康度
+       8.fallback处理
+       9.返回成功的响应
+   原理：HystrixCircuitBreaker接口
+         使用舱壁模式实现线程池隔离，为每一个依赖服务创建一个独立的线程池（具体为线程池和信号量(控制降级)实现舱壁模式）   	   
+   缓存使用
+      原理：
+   请求合并：@HystrixCollapser，解决高并发情况下，通信次数增加和服务线程池有限的问题，可以把一段时间内的请求合并发送
+   Hystix属性设置：@HystrixCommand 的command-Properties属性来设置，比如设置线程隔离策略等
+   Hystix Dashboard（仪表盘）监控 ：整合Turbine和RabbitMq 进行集群监控
+
+
+~~Spring Cloud Feign：声明式服务调用(注解)，整合了Spring Cloud Ribbon和Spring Cloud Hystrix
+   客户端开启：@EnableFeignClients注解在主类上,@FeignClient("XXX")注解在具体实现类上
+               例：@FeignClient(name="HELLO-SERVICE", fallback = HelloServiceFallback.class)，name为服务名字，省去了RestTemplate
+    继承特性：api接口项目
+    Ribbon配置
+    重试机制
+    Hystrix配置
+    请求压缩：GZIP压缩
+    日志配置
+
+
+
+
+~~Spring Cloud Zuul:API网关服务
+   解决问题：负载均衡后路由规则繁杂的维护和接口效验逻辑的复杂
+   网关服务开启：@EnableZuulProxy
+   请求路由：结合Eureka把请求转发到具体的微服务，/routes节点获取当前信息
+      传统路由：直接配置http地址，单实例的路由，多实例配置Ribbon的路由
+      服务路由：结合Eureka配置serviceId
+      自定义路由：主类@Bean化PatternServiceRouteMapper类
+    
+   整合shrio等框架需要设置：1.对指定路由关闭(开启)敏感头  2.重定向设置(addHostHeader=true)
+   Hystrix和Ribbon的支持：熔断和重试
+   
+   请求过滤：继承ZuulFilter，重写过滤规则
+       filterType:定义过滤器的类型(pre,routing,post,error),指不同阶段执行过滤器
+       filerOrder：多滤器时定义过滤器的执行顺序
+       shouldFilter:判断该过滤器是否执行
+       run:具体逻辑
+   配合git仓库实现动态路由：@RefreshScope和@Bean注解Zuulproperties, 自动刷新git的配置
+   配合Groovy的动态加载实现动态过滤
+
+
+
+~~Spring Cloud Gateway：替代Spring Cloud Zuul的网关服务
+    
+
+~~~Spring Cloud Config:分布式配置中心
+    服务端开启：@EnableConfigServer，配合git开启配置中心
+    客户端：在bootstrap.properties配置
+    安全保护和加密（使用JCE对称加密或keytool非对称加密）
+    高可用配置
+       传统模式：多实例负载均衡
+       服务模式：整合Eureka
+    失败快速响应和重试
+    动态刷新：需要加入actuator，访问/refresh刷新
+
+
+~~~Spring Cloud Bus:消息总线
+    SpringBoot集成RabbitMq：发送：@Autowired AmqpTemplate.convertAndSend，
+                  接收：@RabbitListener(queues="XXX"),@RabbitHandler注解process方法处理数据
+		  主类@Bean化Queue创建队列
+     Spring Cloud Bus集成RabbitMq：作为配置中心，多客户端的同步刷新消息的消息总线（/bus/refresh）(不用消息总线的话得一个个刷新)
+                                   架构优化：把配置服务也加入到消息总线，/bus/refresh发送到消息服务
+    集成kafka:
+    原理：采用了Spring的事件驱动模型
+
+
+~~SpringCloud Stream消息驱动：通过使用Spring Integration来连接消息代理中间件以实现消息事件驱动
+    解决问题：我们用到了RabbitMQ和Kafka，由于这两个消息中间件的架构上的不同，像RabbitMQ有exchange，kafka有Topic，partitions分区，我们如果用了两个消息队列的其中一种，
+              后面的业务需求，我想往另外一种消息队列进行迁移，这时候无疑就是一个灾难性的，一大堆东西都要重新推倒重新做，因为它跟我们的系统耦合了，
+	      这时候springcloud Stream给我们提供了一种解耦合的方式
+    客户端：@EnableBindind(Sink.class)（注解在应用类上）和@StreamListener(Sink.INPUT)（注解在应用方法上）,Sink.INPUT是个字符串，通道名字
+            @EnableBindind(Source.class)和@StreamListener(Source.OUTPUT)
+	    结合Sink和Source的Processor接口
+	    @SendTo:消费端消费消息后可以返回一个消息回去
+	    解释：Sink接口和Source接口和Processor接口为系统自定义，实际上原理为@Output(通道名字)（发送消息）和@Input(通道名字)（接收消息）
+    原理：使用Binder绑定器作为中间层，发布-订阅模式
+    消费组：针对消费端集群时，希望消息只被一个实例消费
+    消费分区：由于消费组每次消费的实例都不一样，所以可以设置消费分区设置一个固定实例消费
+    Spring Integration原生注解实现消息生产和消费
+    响应式编程实现消息生产和消费：整合RxJava处理消息的输入和输出
+    消息类型设置
+
+    绑定器配置
+    绑定通道配置
+
+~~SpringCloud Sleuth：分布式服务跟踪
+   可在HttpServletRequest request的Header信息中获取，Trace ID记录本次跟踪的id，Span ID记录一次http请求的ID
+   可以跟踪的链路:
+     通过RabbitMQ，kafka（或其他SpringCloud Stream绑定器实现的消息中间件）传递的请求
+     通过Zuul代理传递的请求
+     通过RestTemplate发起的请求
+   抽样收集：
+      抽样策略：Sampler接口，默认是百分比
+     与logstash整合：搭建ELK
+     与Zipkin整合:推荐
+       基于http收集
+       基于RabbitMQ收集
+   数据存储：由于数据默认存在内存中，可使用Storage组件把信息存在Mysql中
+   API接口
+
+  
+
+
+~~使用sidecar实现跨语言微服务调用@EnableSidecar

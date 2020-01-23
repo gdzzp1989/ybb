@@ -1,0 +1,87 @@
+~~hibernate load():延迟加载，get()立即加载
+
+~~hibernate对象的三种状态
+  瞬时态: 创建之后
+  持久态：调用save()
+  游离态：session.close()之后
+
+
+~~inverse: flase为主动方，决定是否把对象中集合的改动反映到数据库中， 并且这属性只能在有set集合端(一对多，多对多)设置，
+	  双向关联中最好的设置是一端为inverse=true，一端为inverse=false。一般inverse=false会放在多的一端
+  cascade:对象操作的级联属性（all,none,save-update,delete）
+
+~~fetch=select ：先查询主体对象，再获取关联对象
+  fetch=join：一起查询（声明了lazy则无效）
+
+~~hibernate的Discriminator映射：一个表映射成不同的子类，有不同的属性
+
+~~ @jsonignore: json序列化时将java bean中的一些属性忽略掉,序列化和反序列化都受影响。
+
+~~ list() 一次取出所有结果（只查询一级缓存）
+   iterator（）：先查询数据库id再遍历，先去缓存栈，再去数据库（会查询二级缓存），有N+1问题
+
+~~hibernate 1+N问题
+ 一对多，多对一有关联关系，sql会产生N+1或1+N
+ 解决： @ManyToOne的fetch属性值为fetchType.LAZY，这种方式解决后，后面的n条sql语句按需而发
+	@BatchSize(size=5)
+	用join fetch :关联查询（fetch的意思：强制取出集合对象，类似lazy=false，所以full join fetch 与 right join fetch是没有意义的）
+
+~~一级缓存：session级别的，所以如果session关闭后，缓存就没了，此时就会再次发sql去查数据库（不用配置，自带）
+
+~~二级缓存策略：适用很少被修改的数据
+   read-only：大部分配置
+   read-write
+   nonstrict-read-write
+   transational
+
+   list不能从二级缓存获取数据，但是其查询结果会存入二级缓存
+   get/load可以用二级缓存读数据
+   Query 要代码打开再使用缓存，setCacheable(true)
+
+   乐观锁：添加version实现
+   悲剧锁：依靠数据库实现
+
+ ~~Hibernate查询接口
+   Query
+   Criteria
+
+ ~~三种查询方式
+   HQL
+   SQL
+   QBC（Criteria）
+
+
+~~注解
+  @Entity：声明实体bean
+  @Table：映射数据库表
+  @ID主键
+  @GenericGenerator：id生成器
+  @GenerateValue：主键生成策略
+  @Idclass：复合主键
+  @version：添加乐观锁支持
+  @Basic：声明属性存取策略，fetch=FetchType.EAGER(即时)fetch=FetchType.LAZY(延时)
+  @Temporal:时间精度
+  @Column：声明列
+  @Transient：表示字段非数据库的映射
+  @DynamicInsert(true)：
+  @DynamicUpdate(true)：只更新修改的字段
+
+
+  @OneToOne
+  @OneToMany
+  @ManyToOne
+  @ManyToMany
+
+  @JoinColumn：声明一个关联字段
+  @JoinTable:声明中间表维护关系
+
+  @Cache:配置二级缓存
+
+
+~~session.flush()：将session的缓存（一级缓存）中的数据与数据库同步，session.close()执行之前会执行一次  session.flush()
+  session.clear()：清除session中的缓存数据
+  session.evcit(..):把持久对象从缓存移除
+
+~~Hibernate的集合映射(Set、List、Array、Map、Bag)
+    Bag(结合了List与Set),可以重复且没有顺序的一种集合
+   

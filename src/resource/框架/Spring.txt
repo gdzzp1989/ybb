@@ -1,0 +1,336 @@
+~~SpringMVC的基础核心流程
+ 
+ 1.用户发送请求—>DispatcherServlet前端控制器(web.xml里配置)拦截，DispatcherServlet收到请求后自己不进行处理，交给HandlerMapping解析
+   作为统一访问点，进行全局的流程控制
+
+ 2.DispatcherServlet->HandlerMapping->DispatcherServlet， HandlerMapping将会把请求映射为HandlerExecutionChain对象
+ ，HandlerExecutionChain包含一个Handler处理器（具体的Controller对象）和多个HandlerInterceptor拦截器
+
+ 3.DispatcherServlet—>HandlerAdapter->DispatcherServlet，HandlerAdapter会把Handler处理器包装为适配器，然后调用对应的方法
+   并返回一个ModelAndView对象（包含模型数据、逻辑视图名）（需要HandlerAdapter的原因是Handler有几种不同类类型）
+
+ 4.DispatcherServlet—>ViewResolver—>DispatcherServlet，DispatcherServlet得到返回的ModelAndView，再由ViewResolver将把逻辑视图名解析为具体的View
+
+ 5.DispatcherServlet—>View，View会根据传进来的Model模型数据进行渲染，将在处理器传入的模型数据在视图中展示出来；
+
+ 6.View—>DispatcherServlet，返回控制权给DispatcherServlet，DispatcherServlet返回响应给用户，到此一个流程结束。
+
+
+~~springmvc拦截器配置
+    HandleIntercetor（接口）
+    HandleIntercetorAdapter（适配器）
+
+~~Spring分层注解
+  @Controller 标注控制层组件
+  @Service 标注业务层组件
+  @Repository 标注数据访问层组件
+  @Component 泛指组件
+
+~~Spring2.5引入注解式处理器支持（使用处理器映射DefaultAnnotationHandlerMapping和处理器适配器AnnotationMethodHandlerAdapter）
+  @Controller 标注控制层组件
+  @RequestMapping ：请求到具体方法的映射规则
+     value
+     method：RequestMethod.POST等
+     consumes
+     produces:可定制返回的response媒体类型和字符集
+     params：请求里的参数,例如params="create"可匹配user?create,
+     headers：请求头信息的匹配
+
+  @RequestParam：请求参数到方法参数上的绑定；
+  @ModelAttribute：请求参数到命令对象的绑定；
+  @SessionAttributes：用于声明session级别存储的属性
+  @InitBinder：自定义数据绑定注册支持，用于将请求参数转换到命令对象属性的对应类型；
+
+~~Spring3.0引入RESTful架构风格支持（使用处理器映射RequestMappingHandlerMapping 和 处理器适配器RequestMappingHandlerAdapter）
+  @CookieValue：cookie数据到处理器功能处理方法的方法参数上的绑定；
+  @RequestHeader：请求头（header）数据到处理器功能处理方法的方法参数上的绑定；
+  @RequestBody：请求的body体的绑定（通过HttpMessageConverter进行类型转换）；
+  @ResponseBody：处理器功能处理方法的返回值作为响应体（通过HttpMessageConverter进行类型转换）；
+  @ResponseStatus：定义处理器功能处理方法/异常处理器返回的状态码和原因；
+  @ExceptionHandler：注解式声明异常处理器；
+  @PathVariable：请求URI中的模板变量部分到处理器功能处理方法的方法参数上的绑定，从而支持RESTful架构风格的URI；
+
+
+~~Spring地址映射   
+    @RequestMapping(value="/users/{userId}")
+    @RequestMapping(value="/product*")
+    从Spring3.0支持正则表达式
+    @PostMapping：组合注解
+    @GetMapping
+
+~~获取信息
+   @RequestParam:绑定单个请求参数值；
+   @PathVariable:绑定URI模板变量值,@RequestMapping(value="/users/{userId}"),@PathVariable("userId") Integer userId
+   @CookieValue:绑定Cookie数据值
+   @RequestHeader:绑定请求头数据；
+   @SessionAttributes:绑定参数到session；只能在类上使用
+   @RequestBody:绑定请求的内容区数据并能进行自动类型转换等。
+   @RequestPart:绑定"multipart/data"数据,除了能绑定 @RequestParam 能做到的请求参数外，还能绑定上传的文件等
+   @Value用于将一个SpEL表达式结果映射到到参数上（读取配置文件的内容）
+   @MatrixVariable：用于接收URL的path中的矩阵参数
+   @InitBinder：每次进行数据绑定的时候，都会回调这个注解的方法，用于类型转化，绑定不同的Model有相同的属性等
+
+~~方法支持的参数
+   ServletRequest/HttpServletRequest
+   ServletResponse/HttpServletResponse
+   HttpSession
+   InputStream/OutputStream
+   Reader/Writer
+   表单对象：自动绑定参数到对象
+   Model、Map、ModelMap
+   Errors/BindingResult
+
+~~SpringMVC的java配置：配置类需要继承WebMvcConfiguerAdapter类，并使用@EnableWebMvc注解
+
+
+~~@Required注解：作用于Bean的setter方法上，用于检查一个Bean的属性的值在配置期间是否被赋予或设置
+                 需要配置<context:annotation-config/>隐式地注册RequiredAnnotationBeanPostProcessor，使@Required注解生效
+
+~~SpringMvc消息转换器：HttpMessageConverter
+
+~~ @Autowired和 @Resource的区别
+    @Autowired 默认按类型装配，Spring注解，可以结合 @Qualifier注解进行名称装配，可以标注在set方法上
+    @Resource  默认按照名称进行装配，JDK1.6支持的注解
+    
+    @Inject：按类型装配，没有required属性，JDK注解
+    Spring4.0可以用 @Lazy延迟加载
+
+
+~~Spring IOC 控制反转 和Sring DI 依赖注入
+   依赖注入：容器负责创建对象和维护对象间的依赖关系,负责创建对象，管理对象（通过依赖注入（DI），装配对象，配置对象，并且管理这些对象的整个生命周期
+   控制反转：IOC是通过DI实现的
+
+~~SpringIOC（依赖注入/控制反转）：让调用类对某一接口的依赖关系由第三方注入，对象们给出它们的依赖，而不是创建或查找依赖的对象们,
+   底层实现：ClassLoader类加载器，java反射，Resource资源访问
+   注入方式（实例化bean）：
+     1.构造函数注入：构造函数完成注入
+     2.属性注入：setter方法完成注入
+     3.接口注入：不提倡
+     4.工厂方法注入：利用工厂类注入(静态工厂,实例工厂)
+
+     spring支持1，2，4
+     
+     5.lookup-method方式：用到了CGLib（动态代理）包，解决单例模式的bean A需要引用另外一个非单例模式的bean B的问题
+
+~~BeanFactory：SpringIOC核心接口，负责读取bean配置文档，管理bean的加载，实例化，维护bean之间的依赖关系，负责bean的声明周期。
+   主要方法：getBean(String beanName),该方法返回特定名称的Bean
+   初始化：通过XmlBeanDefinitionReader和DefalutListableBeanFactory启动SpringIOC容器
+   BeanFactory结构树：ListableBeanFactory：访问Bean基本信息的接口(个数，配置名等)
+		      HierarchicalBeanFactory：父子级联IOC容器接口（子容器可以访问父容器的bean，父容器可以访问子容器的bean）
+		      AutowireCapableBeanFactory：自动装配Bean的规则（名字匹配，类型匹配）
+                      等等
+
+   最常用的BeanFactory 实现是XmlBeanFactory 类,它根据XML文件中的定义加载beans。该容器从XML 文件读取配置元数据并用它去创建一个完全配置的系统或应用。
+
+   		      
+~~ApplicationContext：建立于BeanFactory之上，应用上下文
+    主要方法：getBean(String beanName),继承BeanFactory
+    初始化：通过ClassPathXmlApplicationContext和FileSystemApplicationContext启动SpringIOC容器
+    ApplicationContext结构树：继承了ListableBeanFactory和HierarchicalBeanFactory和其他接口
+                              还有一些接口继承ApplicationContext扩展方法
+
+
+  BeanFactory初始化容器时，不实例化Bean，第一次访问Bean才实例
+  ApplicationContext初始化应用上下文就实例所有单例的Bean
+  ApplicationContext除了提供上述BeanFactory所能提供的功能之外，还提供了更完整的框架功能：
+	a. 国际化支持
+	b. 资源访问：Resource rs = ctx. getResource(“classpath:config.properties”), “file:c:/config.properties”
+	c. 事件传递：通过实现ApplicationContextAware接口
+
+
+~~WebApplicationContext:专门为web准备，继承ApplicationContext
+     非web环境下，Bean的作用域只有singleton和prototype，WebApplicationContext加了request，session，global session
+     初始化：需要ServletContext（ContextLoaderListener或ContextLoaderServlet）
+     WebApplicationContext结构树
+
+
+
+~~Spring配置bean方案
+  1.xml配置
+  2.注解：@Controller 和 @Service 和 @Repository 和 @Component
+  3.java类    @Configuration 和 @Bean    
+  4.Groovy DSL
+
+
+~~Spring在web环境的启动过程
+   1.对于一个web应用，其部署在web容器中，web容器提供其一个全局的上下文环境，这个上下文就是ServletContext（全局应用程序共享对象），其为后面的spring IoC容器提供宿主环境；
+   2.在web.xml配置<context-param>配置spring的xml路径，再通过后一段的的<listener>来配置上下文监听器ContextLoaderListener
+     ContextLoaderListener的父类是ContextLoader，在启动项目时会触发contextInitialized上下文初始化方法
+   3.在contextInitialized方法中，会创建WebApplicationContext，在加载对应的spring配置文件中的Bean（refresh方法执行所有Java对象的创建，所有bean定义通过BeanDefinition方式注册到BeanDefinitionRegistry），
+     最后将WebApplicationContext放入ServletContext中
+
+
+~~BeanFactory中Bean的生命周期
+  0.调用者通过getBean向容器请求一个Bean
+
+  1.调用InstantiationAwareBeanPostProcessor接口的postProcessBeforeInstantiation()方法(如果容器注册了InstantiationAwareBeanPostProcessor接口)
+  2.根据配置情况调用Bean构造函数或工厂方法实例化Bean
+  3.调用InstantiationAwareBeanPostProcessor接口的postProcessAfterInstantiation()方法(如果容器注册了InstantiationAwareBeanPostProcessor接口)
+  4.调用InstantiationAwareBeanPostProcessor接口的postProcessPropertyValues()方法(如果Bean配置了属性信息)(如果容器注册了InstantiationAwareBeanPostProcessor接口)
+
+  5.容器在这一步着手将配置值设置到Bean对应的属性中(如果Bean配置了属性信息)
+  6.调用BeanNameAware接口的setBeanName()方法，将配置文件中该Bean对应的名称设置到Bean中(如果Bean实现了BeanNameAware接口)
+  7.调用BeanFactoryAware接口的setBeanFactory()方法，将BeanFactory实例设置到Bean中(如果Bean实现了BeanFactoryAware接口)
+  7.5 调用ApplicationContextAware接口的setApplicationContext()方法，将ApplicationContext实例设置到Bean中(如果Bean实现了ApplicationContextAware接口)  
+
+  8.调用BeanPostProcessor接口的postProcessBeforeInitialization方法,对Bean进行加工操作。例如AOP，动态代理等 (如果容器注册了BeanPostProcessor)  
+  9.调用InitializingBean接口的afterPropertiesSet()方法（如果Bean实现了InitializingBean的接口）
+  10.执行在<bean>通过init-method属性定义的初始化方法（注解为 @PostContrust）
+  11.调用BeanPostProcessor接口的postProcessAfterInitialization方法,再次可以对Bean进行加工操作。 (如果容器注册了BeanPostProcessor) 
+
+  12.如果在<bean>中指定Bean的作用范围为scope="prototype"，将Bean返回给调用者，调用者负责Bean后续生命的管理，Spring不再管理这个Bean的生命周期。
+     如果作用范围设置为scope="singleton"，则将Bean放入到Spring IoC容器的缓存池中，并将Bean引用返回给调用者，Spring继续对这些Bean进行后续的生命管理，
+  13.当容器关闭时，调用接口的afterPropertiesSet()方法，可以在此编写释放资源、记录日志等操作(scope="singleton")(如果Bean实现了DisposableBean接口)
+  14.执行在<bean>通过destroy-metho属性定义的销毁方法，完成Bean资源的释放等操作(scope="singleton")（注解为 @PreDestory）
+
+  注册容器的意思是：调用getBean之前，调用了addBeanPostProcessor方法添加实现接口的类（BeanFactory）
+		    xml中配置，反射识别（ApplicationContext）
+
+
+  简化：
+	1.调用容器注册接口的实现(InstantiationAwareBeanPostProcessor)
+	2.根据配置情况调用Bean构造函数或工厂方法实例化Bean
+	3.容器在这一步着手将配置值设置到Bean对应的属性中(如果Bean配置了属性信息)
+	4.将一些实例设置到bean中(BeanNameAware,BeanFactoryAware,ApplicationContextAware)
+	5.对Bean进行加工操作。例如AOP，动态代理等（BeanPostProcessor）
+	6.执行在<bean>通过init-method属性定义的初始化方法（注解为 @PostContrust）
+	7.如果作用范围设置为scope="prototype"，将Bean返回给调用者，调用者负责Bean后续生命的管理，Spring不再管理这个Bean的生命周期。
+		如果作用范围设置为scope="singleton"，则将Bean放入到Spring IoC容器的缓存池中，并将Bean引用返回给调用者，Spring继续对这些Bean进行后续的生命管
+	
+	8.当容器关闭时，调用接口的afterPropertiesSet()方法，可以在此编写释放资源、记录日志等操作(scope="singleton")(如果Bean实现了DisposableBean接口)
+	9.执行在<bean>通过destroy-metho属性定义的销毁方法，完成Bean资源的释放等操作(scope="singleton")（注解为 @PreDestory）
+
+	
+	
+	
+	1. 调用者通过getBean向容器请求一个Bean
+
+	2.处理InstantiationAwareBeanPostProcessor接口方法
+	3.根据配置情况调用Bean构造函数或工厂方法实例化Bean
+	4.处理InstantiationAwareBeanPostProcessor接口方法
+
+	5.容器在这一步着手将配置值设置到Bean对应的属性中(如果Bean配置了属性信息)
+	6.处理BeanNameAware接口方法
+	7.处理BeanFactoryAware接口方法
+
+        8.调用BeanPostProcessor接口方法,对Bean进行加工操作。例如AOP，动态代理等
+        9.调用InitializingBean接口的afterPropertiesSet()方法（如果Bean实现了InitializingBean的接口）
+	10.执行在<bean>通过init-method属性定义的初始化方法（注解为 @PostContrust）
+
+	
+	11.如果在<bean>中指定Bean的作用范围为scope="prototype"，将Bean返回给调用者，调用者负责Bean后续生命的管理，Spring不再管理这个Bean的生命周期。
+	   如果作用范围设置为scope="singleton"，则将Bean放入到Spring IoC容器的缓存池中，并将Bean引用返回给调用者，Spring继续对这些Bean进行后续的生命管理，
+	
+	12.当容器关闭时，调用接口的afterPropertiesSet()方法，可以在此编写释放资源、记录日志等操作(scope="singleton")(如果Bean实现了DisposableBean接口)
+	13.执行在<bean>通过destroy-method属性定义的销毁方法，完成Bean资源的释放等操作(scope="singleton")（注解为 @PreDestory）
+
+
+
+~~bean的作用域
+  singleton：单例模式存在，默认作用域
+  prototype：每次调用getBean(),都返回新的实例
+  request：每次http请求都会创建新的Bean
+  session:同一个session 共享一个Bean
+  globalSession:同一个全局session 共享一个Bean
+
+~~@PostConstruct：等于init-method配置
+  @PreDestroy：等于destroy-method配置
+
+~~factoryBean：FactoryBean在IOC容器的基础上给Bean的实现加上了一个简单工厂模式和装饰模式，当在IOC容器中的Bean实现了FactoryBean后，
+		通过getBean(String BeanName)获取到的Bean对象并不是FactoryBean的实现类对象，而是这个实现类中的getObject()方法返回的对象，
+		要获取factoryBean的实现类，加&前缀
+
+
+
+~~spring工作机制：AbstractApplicationContext（ApplicationContext的实现类）的refresh()方法定义了加载配置文件后的各项处理操作
+
+
+~~属性编辑器(PropertyEditor接口)：类型转换器，将外部设置的值转化为JVM内部的对应类型
+
+~~SpringAOP（底层实现：ProxyFactory工厂类JDK动态代理和CGLib动态创建子类代理)：为了解耦，把应用业务逻辑和系统服务分开
+ 
+ 增强类型
+   前置增强
+   后置增强
+   环绕增强
+   异常抛出增强：事务应用
+   final增强
+   引介增强：可以为目标类创建某个新接口的代理(DelegatingIntroductionInterceptor)
+
+ 实现方式：
+   @AspectJ：注解方式， @Pointcut配置拦截规则（注解，方法名等）， @before， @after等
+   <aop:aspect>方式：xml
+   <aop:advisor>方式
+   Advisor类方式：
+
+
+~~Spring事务传播行为(抛出RuntimeException捕获)
+  PROPAGATION_REQUIRED:如果当前没有事务，则新建一个事务，如果已有一个事务，则加入
+  PROPAGATION_SUPPORTS:使用当前的事务，如果当前没有事务，则以非事务运行
+  PROPAGATION_MANDATORY:使用当前的事务，如果当前没有事务，则抛出异常
+  PROPAGATION_REQUIRED_NEW:新建一个事务，如果当前存在事务，则把当前事务挂起
+  PROPAGATION_NOT_SUPPORTED:以非事务运行，如果当前存在事务，则把当前事务挂起
+  PROPAGATION_NEVER:以非事务运行，如果当前存在事务，则抛出异常
+  PROPAGATION_NESTED:如果当前存在事务，则在嵌套事务内执行，如果当前没有事务，则新建一个事务
+
+
+~~Spring事务（底层的connection使用用ThreadLocal解决线程安全）
+  编程式事务：需要写代码进行事务管理，一般不用，TransactionTemplate
+  声明式事务
+    XMl：
+      TransactionProxyFactoryBean代理工厂类配置(旧版本使用)：用方法名定义
+      tx标签：切点定义
+    注解
+      @Transactional
+
+
+~~Spring4.x推荐java配置
+   @Configuration：用于类名上，配合@Bean注册bean
+   @ConfigurationScan：用于类名上,扫描包名，注册bean
+    @EnableAsync：用于类名上,开启异步任务
+    @EnableScheduling：用于类名上,开启计划任务
+    @EnableCaching：用于类名上,开启缓存
+   @Import：将一个类作为bean的定义注册到容器中
+   @Conditional: 类实现Condition接口返回boolean，再配合@Conditional实现bean生成的条件   
+   @ConfigurationProperties：@Value的改进版，可以更方便的读取配置属性，可用@PropertySource("classpath:xxx.properties")，
+                             可用@enableConfigurationProperties内置开启将对象自动注册为bean
+
+~~Spring El：表达式语言，使用@value注入各种属性
+
+~~Spring 事件监听/事件驱动
+   1.自定义需要监听事件，继承ApplicationEvent，ApplicationEvent继承自EventObject，Spring提供了一些默认实现，如容器初始化，刷新，关闭等事件
+   2.定义事件监听器：实现ApplicationListener(onApplicationEvent方法中实现触发的事件)
+   3.使用容器发布事件，注册bean（继承ApplicationEventPublisher和ApplicationEventMulticaster）
+
+~~@Scheduled:开启定时任务
+
+~~Spring的组合注解: 多个spring注解写到一个自定义注解上，可用一个自定义注解实现多个spring注解(例如@RestController)
+
+~~@ControllerAdvice(用于类)：和@ExceptionHandler(用于方法)配合，统一处理异常
+                     和@InitBinder(用于方法)配合，处理前台绑定参数绑定到model中
+		     和@ModelAttribute(用于方法)配合，可往方法中添加统一的参数
+
+~~Spring默认缓存接口：CacheManager
+
+ ~~@Cacheable(value="XX"，key="XX")：方法执行前先看缓存是否有数据，有就用缓存，没有就调用方法并将返回值放入缓存
+   @CachePut：无论什么情况都将方法的返回值放到缓存中
+   @CacheEvict:将一条或多条数据从缓存删除
+   @Caching:可以组合多个注解策略在一个方法上
+
+
+~~Spring Batch:用来处理大量数据的一个框架
+
+~~Spring Integration：基于Spring的EIP(企业集成模式)，解决不同系统之间的交互问题，通过异步消息驱动
+
+
+~~Spring5新特性
+  1.自带通过日志框架
+  2.多序列化数据格式绑定API
+  3.函数式风格的ApplicationContext
+  4.kotlin表达式的支持
+  5.WebFlux模块
+  6.Testing改进
+
+
+
+  ~~Spring 默认使用JDK动态代理，但是Spring boot是CGlib

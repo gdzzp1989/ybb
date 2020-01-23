@@ -1,0 +1,109 @@
+~~Dubbo：阿里巴巴开源的基于 Java 的高性能 RPC 分布式服务框架，为了满足高并发小数据量的 rpc 调用，在大数据量下的性能表现并不好，建议使用 rmi 或 http 协议。
+
+~~Dubbo支持的协议：
+   dubbo://（默认）：传输协议：TCP ，传输方式：NIO异步传输(使用了Netty)， 序列化：Hessian二进制序列化 
+   rmi://
+   hessian://
+   http://
+   webservice://
+   thrift://
+   memcached://
+   redis://
+   rest://
+
+~~Java SPI（Service Provider Interfaces）：SPI提供了一种服务发现机制，
+	在META-INF/services/目录下创建一个以服务接口命名的文件，具体实现由服务提供者（Service Provider）提供
+	（JDK提供的java.util.ServiceLoader类去主动发现服务）
+
+~~Dubbo拓展机制借鉴了Java SPI的思想，使用ExtensionLoader加载@SPI和@Adaptive注解的类
+   @Adaptive注解在实现类上，实现一个装饰类(设计模式中的装饰模式),它主要作用于固定已知类，ExtensionLoader.getAdaptiveExtension方法会直接返回这个类的实例
+            如果注解在方法上，代表自动生成和编译一个动态的Adpative类，根据@SPI和@Adaptive的内容匹配
+
+~~Dubbo配置文件加载原理：基于Spring可拓展Schema自定义实现的（xml自定义属性读取到javabean）
+
+~~Dubbo的节点角色
+   Provider：暴露服务的服务提供方
+   Consumer：调用远程服务的服务消费方
+   Registry：服务注册与发现的注册中心
+   Monitor：统计服务的调用次数和调用时间的监控中心
+   Container：服务运行容器，Dubbo 的服务容器只是一个简单的 Main 方法，并加载一个简单的 Spring 容器，用于暴露服务。(打成jar包执行)
+	Spring Container自动加载META-INF/spring目录下的所有Spring配置
+	Jetty Container启动一个内嵌Jetty，用于汇报状态
+	Log4J Container自动配置log4j的配置，在多进程启动时，自动给日志文件按进程分目录
+
+~~服务注册与发现的简易流程图(菱形4个角,5个节点，6条线)
+    start.服务容器Container负责启动,加载,运行服务提供者Provider。
+    register.服务提供者在启动时,向注册中心Registry注册自己提供的服务Provider。
+    subscribe.服务消费者在启动时,向注册中心订阅自己所需的服务。
+    notify.注册中心返回服务提供者地址列表给消费者,如果有变更,注册中心将基于长连接推送变更数据给消费者。
+    invoke.服务消费者,从提供者地址列表中,基于软负载均衡算法,选一台提供者进行调用,如果调用失败,再选另一台调用。
+    count.服务消费者和提供者,在内存中累计调用次数和调用时间,定时每分钟发送一次统计数据到监控中心Monitor。
+
+
+~~Dubbo核心配置
+   dubbo:application:应用配置
+   dubbo:protocol：协议配置
+   dubbo:registry：注册中心配置
+   dubbo:monitor：监控中心配置
+   dubbo:provider：提供方配置
+   dubbo:consumer：消费方配置
+   dubbo:reference：引用配置
+
+
+~~Dubbo暴露服务的过程
+  1.Dubbo通过运用Spring自定义Schema机制(用户可以自定义XML Schema文件，并自定义XML Bean解析器，并集成到Spring Ioc 容器中)，实现对自定义配置文件参数注入ServiceBean
+  2.根据Spring Bean的生命周期，ServiceBean实现了 ApplicationListener和InitializingBean接口
+     参数注入后，会继续执行InitializingBean接口的afterPropertiesSet() throws Exception
+     实例对象初始化完成后会执行事件监听器ApplicationListener接口的 onApplicationEvent方法
+  3.ServiceBean 也继承了ServiceConfig类，ServiceBean在afterPropertiesSet和onApplicationEvent中调用ServiceConfig的export方法暴露服务
+     (afterPropertiesSet中dubbo默认配置延迟暴露不执行export，一般在onApplicationEvent执行，export所以是幂等的)，export调用doExport()开始暴露服务
+  4.doExport()方法调用doExportUrls(),doExportUrls()先加载注册中心列表(dubbo.properties配置文件)registryURLs ,
+     在循环protocolConfig（因为dubbo是多协议的），调用doExportUrlsFor1Protocol(protocolConfig, registryURLs)开始暴露服务;
+
+  5. doExportUrlsFor1Protocol方法中先判断是本地暴露还是远程暴露，
+     如果本地暴露，调用exportLocal();
+        由ProxyFactory(ProxyFactory由ExtensionLoader拓展机制进行加载，默认JavassistProxyFactory)生成服务代理类invoker（具体实现类的代理）
+	配置的协议（默认dubbo就是DubboProtocol），调用protocol.export(invoker),对invoker创建服务发布(注册到注册中心)，得到实例Exporter并放入缓存中）
+     如果远程暴露
+        循环registryURLs
+	由ProxyFactory(ProxyFactory由ExtensionLoader拓展机制进行加载，默认JavassistProxyFactory)生成服务代理类invoker（具体实现类的代理）
+	配置的协议（默认dubbo就是DubboProtocol），调用protocol.export(invoker),对invoker创建服务发布(注册到注册中心)，得到实例Exporter并放入缓存中）
+	   启动netty
+           连接zookeeper
+           到zookeeper注册
+           监听zookeeper 
+
+  在dubbo中我们一个服务可能既是Provider,又是Consumer,因此就存在他自己调用自己服务的情况,如果再通过网络去访问,
+  那自然是舍近求远,因此他是有本地暴露服务的这个设计
+  本地暴露是暴露在JVM中,不需要网络通信.本地暴露的url是以injvm开头
+  远程暴露是将ip,端口等信息暴露给远程客户端,调用时需要网络通信.远程暴露的url是以registry开头
+
+~~Dubbo整合Pinpoint实现分布式服务追踪
+
+~~Dubbo 是通过 JDK 的 Runtime.ShutdownHook(关闭钩子) 来完成优雅停机:
+    应用程序正常退出，在退出时执行特定的业务逻辑，或者关闭资源等操作
+
+~~Dubbo服务基于 Zookeeper 的临时节点原理 实现失效踢出
+
+~~Dubbo调试： telnet 命令
+
+~~Dubbo服务之间的调用 默认是同步等待结果阻塞的，支持异步调用
+
+~~Dubbo的负载均衡策略及其容错方案
+
+~~Dubbo服务降级：mock参数
+
+
+~~Dubbo默认也推荐使用netty框架，还有mina以及基于servlet等方式。
+
+~~Dubbo推荐使用zookeeper注册中心，还有Multicast、Redis和Simple等
+
+~~Dubbo默认使用Hessian序列化，还有Duddo、FastJson、Java自带序列化
+
+~~Dubbo的服务失效踢出基于zookeeper的临时节点原理。这样就不需要直接去连接需要检查的机器,降低系统的复杂度
+
+~~Dubbo对多版本的支持<dubbo:reference id="barService" interface="com.foo.BarService" version="1.0.0" />
+
+~~Dubbo结合zipkin实现分布式服务追踪
+
+~~Dubbo可以绕过注册中心直连服务，指定Url方式或telnet

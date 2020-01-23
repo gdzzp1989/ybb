@@ -1,0 +1,40 @@
+~~Tomcat8中4种运行模式
+  BIO:同步阻塞
+  NIO:同步非阻塞
+  NIO2(AIO):异步阻塞
+  APR:Tomcat将以JNI的形式调用Apache HTTP服务器的核心动态链接库来处理文件读取或网络传输操作，
+       从而大大地提高Tomcat对静态文件的处理性能。
+
+~~Tomcat组件
+  Server:继承至LifeCycle，LifeCycle是一个非常重要的接口，各大组件都继承了这个接口，用于管理tomcat的生命周期，比如init、start、stop、destory；另外，它使用了观察者模式，
+	LifeCycle是一个监听者，它会向注册的LifecycleListener观察者发出各种事件
+  Service:默认实现类是StardardService，类结构和StardardServer很相似，也是继承至LifecycleMBeanBase，实现了Service接口
+  Engine:表示Catalina的Servlet引擎，如果使用了Engine的话，则它是Catalina的顶层容器，因此在StardardCataline的setParent()方法中直接抛出的异常
+  Connerctor:tomcat中监听TCP端口的组件，server.xml默认定义了两个Connector，分别用于监听http、ajp端口。对应的代码是org.apache.catalina.connector.Connector，它是一个实现类，并且实现了Lifecycle接口
+  Host:定义了一个虚拟主机，正所谓虚拟主机，当然是可以用来部署应用程序的，Tomcat的Host也是如此。它在server.xml中定义了一个localhost的Host，应用根目录在webapps下面，默认是支持解压重新部署的。
+  Context:Context代表一个独立的web应用，针对每个Context，tomcat都是使用不同的Classloader避免类冲突。如果我们希望使用一个自定义的目录作为部署路径的话，可以在server.xml中新增Context即可
+  Catalina：与开始/关闭shell脚本交互的主类
+  Realm：是用来处理安全里授权与认证。
+
+
+~~ Tomcat Server处理一个http请求的过程
+  假设来自客户的请求为：http://localhost:8080/wsota/wsota_index.jsp
+  1) 请求被发送到本机端口8080，被在那里侦听的Coyote HTTP/1.1 Connector获得
+  2) Connector把该请求交给它所在的Service的Engine来处理，并等待来自Engine的回应
+  3) Engine获得请求localhost/wsota/wsota_index.jsp，匹配它所拥有的所有虚拟主机Host
+  4) Engine匹配到名为localhost的Host（即使匹配不到也把请求交给该Host处理，因为该Host被定义为该Engine的默认主机）
+  5) localhost Host获得请求/wsota/wsota_index.jsp，匹配它所拥有的所有Context
+  6) Host匹配到路径为/wsota的Context（如果匹配不到就把该请求交给路径名为”"的Context去处理）
+  7) path=”/wsota”的Context获得请求/wsota_index.jsp，在它的mapping table中寻找对应的servlet
+  8) Context匹配到URL PATTERN为*.jsp的servlet，对应于JspServlet类
+  9) 构造HttpServletRequest对象和HttpServletResponse对象，作为参数调用JspServlet的doGet或doPost方法
+  10)Context把执行完了之后的HttpServletResponse对象返回给Host
+  11)Host把HttpServletResponse对象返回给Engine
+  12)Engine把HttpServletResponse对象返回给Connector
+  13)Connector把HttpServletResponse对象返回给客户browser
+  
+ 请求->Connector->Engine->Host->Context->servlet处理，返回HttpServletResponse->Context->Host->Engine->Connector->browser
+
+~~Tomcat 启动顺序
+
+~~tomcat 10k

@@ -1,0 +1,270 @@
+~~Redis是一个开源的内存中的数据结构存储系统，它可以用作：数据库、缓存和消息中间件，Redis 内置了复制（Replication），LUA脚本（Lua scripting），
+  LRU驱动事件（LRU eviction），事务（Transactions） 和不同级别的磁盘持久化（Persistence），并通过 Redis哨兵（Sentinel）
+  和自动分区（Cluster）提供高可用性（High Availability）
+
+~~Redis安装
+  启动命令：redis-server /usr/local/redis-4.0.10/redis.conf
+  关闭：redis-cli shutdown
+
+~~连接Redis
+  1.Jedis开发包
+     Jedis
+     JedisPool
+     ShardedJedis
+     shardedJedisPool
+
+  2.SpringDataRedis的RedisTemplate，可与SpringCache结合
+
+
+~~底层实现：单线程和IO多路复用epoll方式
+
+~~Redis主从复制原理(Slave初始化阶段全量同步, Slave初始化后增量同步)
+  　1.从服务器连接主服务器，发送SYNC命令； 
+　　2.主服务器接收到SYNC命名后，开始执行BGSAVE命令生成RDB文件并使用缓冲区记录此后执行的所有写命令； 
+　　3.主服务器BGSAVE执行完后，向所有从服务器发送快照文件，并在发送期间继续记录被执行的写命令； 
+　　4.从服务器收到快照文件后丢弃所有旧数据，载入收到的快照； 
+　　5.主服务器快照发送完毕后开始向从服务器发送缓冲区中的写命令； 
+　　6.从服务器完成对快照的载入，开始接收命令请求，并执行来自主服务器缓冲区的写命令； 
+
+    无磁盘化复制(repl-diskless-sync)master在内存中直接创建rdb，然后发送给slave，不会在自己本地落地磁盘了
+
+~~常用数据类型
+   String：可用于分布式锁，id生成器的实现
+     set/mset  数据插入/批量
+     get/gset 获取数据/批量
+     getSet，获取原有value值的同时写入新的value
+     del 数据删除
+     setex 数据插入并设置过期时间
+     setnx 赋值判断原值是否存在，存在不赋值，返回0；不存在才赋值，返回1
+     msetnx 带事务性的赋值，发现有一个key已经存在，所有事务回归，不做赋值处理操作
+   List:可用于消息队列的实现
+     lpush/rpush 从左/右边插入一条数据
+     lrange 指定位置查看列表中的数据
+     linsert ... before|after ...   在列表中查找值为X的数据，在其后插入数据
+     lpop/rpop 从列表中的左/右边移除一条数据，同时输出被删除的数据
+     blpop 列表有值的话，从左边移除一个数据，如果没有值的话，则等待列表中插入数据为止（阻塞）（参数设置时间）
+     lset 指定某个下标的值
+     rpoplpush A B 将A列表的尾元素添加到B列表的头元素中
+   Set：可用于抽奖，点赞，关注，电商商品筛选（类似倒序索引）的实现
+     sadd 新增命令Sadd，key值相同下的value值不能重复，返回插入的数据个数
+     smembers 可以获取全部的元素
+     sismember 判断某个key的value中是否存在某个值的命令,如果存在返回1，不存在返回0
+     srem 删除数据命令，返回删除个数，key后面可跟多个value值
+     scard 查看数据个数的命令,如果不存在返回0
+     srandmember 随机查看元素命令
+     smove 将一个set中的元素移动到另外一个set中的命令
+     sinter 交集命令
+     sunion 并集的命令sunion
+     sdiff 差集的命令sdiff
+   Hash:避免了存对象时序列化和反序列化的操作，用map方式（具体数据为key/value格式）存取
+     hset/hmset 添加命令,如果key不存在，创建key，存在，则覆盖原有值/批量
+     hget/hmget 查看命令/批量
+     hlen 查看hash的获取key包含的field数量的命令
+     hexists 判断指定key中指定field是否存在的命令
+     hdel 删除命令
+     hsetnx hash如果key或field不存在插入有效，否则不采取操作的命令
+   Sorted set(Zset)：每一个成员都有一个分数与之对应，并且分数是可以重复的,可用于搜索自动补齐的实现
+     zadd 添加，如果值存在添加，将会重新排序。（zadd myzset 2 "two" 3 "three"   添加两个分数分别是 2 和 3 的两个成员）
+     zcard 查看zset集合的成员个数。
+
+
+~~Redis实现分布式锁
+   1. setnx(lockkey, 当前时间+过期超时时间) ，如果返回1，则获取锁成功；如果返回0则没有获取到锁，转向2。 
+   2. get(lockkey)获取值oldExpireTime ，并将这个value值与当前的系统时间进行比较，
+      如果小于当前系统时间，则认为这个锁已经超时，可以允许别的请求重新获取，转向3。 
+   3. 计算newExpireTime=当前时间+过期超时时间，然后getset(lockkey, newExpireTime) 会返回当前lockkey的值currentExpireTime。 
+   4. 判断currentExpireTime与oldExpireTime 是否相等，如果相等，说明当前getset设置成功，获取到了锁。如果不相等，
+      说明这个锁又被别的请求获取走了，那么当前请求可以直接返回失败，或者继续重试。 
+   5. 在获取到锁之后，当前线程可以开始自己的业务处理，当处理完毕后，比较自己的处理时间和对于锁设置的超时时间，
+      如果小于锁设置的超时时间，则直接执行delete释放锁；如果大于锁设置的超时时间，则不需要再锁进行处理。
+
+
+~~Redis事务（Redis原生事务只保证原子性）
+   MULTI命令 开启事务,用户可以发出多个命令。Redis不会执行这些命令，而是将它们排队。调用EXEC后执行所有命令。
+   EXEC命令  提交事务
+   DISCARD 将刷新事务队列并退出事务
+   
+   事务发生错误的处理
+    1.调用EXEC之前的错误，如语法错误，2.6.5版本之后，在客户端调用EXEC时，redis会拒绝执行这一事务。在2.6.5之前的版本中，redis会忽略那些入队失败的命令，只执行那些入队成功的命令
+    2.调用EXEC之后的错误，redis不会理睬这些错误，而是继续向下执行事务中的其他命令
+
+   WATCH 可以监控一个或多个键，一旦其中有一个键被修改（或删除），之后的事务就不会执行。监控一直持续到EXEC命令（事务中的命令是在EXEC之后才执行的，所以事务中可以修改WATCH监控的键值），用于乐观锁
+   UNWATCH 执行EXEC命令后会取消对所有键的监控，也可以使用 UNWATCH 命令来取消监控（如果不想执行事务的语句）
+
+
+   实现incr：
+      WATCH mykey
+      val = GET mykey
+      val = val + 1
+      MULTI
+      SET mykey $val
+      EXEC
+
+   实现hsetNX函数
+    WATCH key  
+    isFieldExists = HEXISTS key, field  
+    if isFieldExists is 1  
+    MULTI  
+    HSET key, field, value  
+    EXEC  
+    else  
+    UNWATCH  
+    return isFieldExists
+
+~~Redis管道模式（Pipeline类）：他可以使客户端在没有读取旧的响应时，处理新的请求。这样便可以向服务器发送多个命令，而不必等待答复，直到最后一个步骤中读取答复
+
+~~Redis使用setbit，getbit，bitcount，bitop 实现 bitmap 对百万级别用户上线次数统计、统计活跃用户
+     setbit KEY_NAME OFFSET VALUE //该命令用于对 key 所储存的字符串值，设置或清除指定偏移量上的位(bit)。时间复杂度O（1）
+     bitcount andy //该命令统计字符串（字节）被设置为1的bit数
+     getbit andy offset    //返回key对应的string在offset处的bit值
+     bitop operation destkey key [key...]  //对一个或多个保存二进制位的字符串 key 进行位元操作，并将结果保存到 destkey 上 
+        BITOP AND destkey srckey1 … srckeyN ，对一个或多个 key 求逻辑与，并将结果保存到 destkey
+	BITOP OR destkey srckey1 … srckeyN，对一个或多个 key 求逻辑或，并将结果保存到 destkey
+	BITOP XOR destkey srckey1 … srckeyN，对一个或多个 key 求逻辑异或，并将结果保存到 destkey
+	BITOP NOT destkey srckey，对给定 key 求逻辑非，并将结果保存到 destkey
+
+~~Redis使用lua脚本格式：
+    redis-cli
+    EVAL script numkeys key [key ...] arg [arg ...]
+
+    java运行lua脚本 luajava包
+
+~~Redis事件订阅功能(不建议使用，建议使用MQ)：
+    简单命令：publish命令由发送者使用，负责向指定的Channel发送消息；
+              subscribe命令由订阅者使用，负责从指定的一个或者多个Channel中获取消息
+    模式订阅psubscribe:除了可以通过Channel订阅消息以外，还可以配合配置命令来进行Keys信息变化的事件通知
+ 
+~~Redis持久化存储方案
+   RDB：周期性的同步，采用Copy-on-Write方法，fork一个新的快照进程将目前服务中的所有数据全部写入到磁盘(可能会导致最新修改的数据无法恢复)
+   AOF：记录Redis服务启动成功后的每一次影响数据状态的操作命令，可以按照这些操作命令恢复数据状态(有日志重写功能防止日志过大)
+
+~~Redis使用场景汇总
+   缓存
+   分布式锁(setnx方法,get()方法，getset()方法和时间戳的过期判断实现)
+   保存session，保存session也可用于单点登录
+   可以做定时任务
+   可以实现消息队列：不建议，建议使用mq
+   注册中心
+   限流算法
+
+~~缓存污染：将不经常访问的数据放置到缓存存储空间中，以至于高频访问的数据无法放置到缓存中；
+
+~~替代策略：当数据放置到缓存空间时，由于空间不足时，就需要从缓存空间中去除已有的数据，选择去除哪些数据就是由替代策略决定的。
+    Least-Recently-Used（LRU：最常用，替换掉最近被请求最少的缓存，变种：Two Queues（2Q）
+    Least-Frequently-Used（LFU）：替换掉访问次数最少的缓存，LRU2
+    SIZE：替换占用空间最大的对象
+    First in First Out（FIFO）
+    等十几种算法
+
+~~Cache Aside Pattern缓存数据库一致性解决方案
+    失效：应用程序先从cache取数据，没有得到，则从数据库中取数据，成功后，放到缓存中。
+    命中：应用程序从cache中取数据，取到后返回。
+    更新：先把数据存到数据库中，成功后，再让缓存失效。
+
+
+~~缓存与数据库的一致性解决方案（高并发情况下，具体根据实际情况）
+    写流程：
+    之后再更新DB，我们监听从库(资源少的话主库也ok)的binlog，
+	    通过分析binlog（Canal或Databus）我们解析出需要需要刷新的数据标识，然后将数据标识写入MQ，接下来就消费MQ，解析MQ消息来读库获取相应的数据刷新缓存。
+    读流程：第一步先读缓存，如果缓存没读到，则去读DB，之后再异步将数据标识写入MQ（这里MQ与写流程的MQ是同一个），
+	    接下来就消费MQ，解析MQ消息来读库获取相应的数据刷新缓存
+    --实现了最终一致性，使用binlog解决了缓存有可能刷新失败的问题，用序列化mq解决多线程更新无时序的问题
+    --实现强一致性：加一个缓存，将近期被修改的数据进行标记锁定。读的时候，标记锁定的数据强行走DB，没锁定的数据，先走缓存
+      写的时候我们把修改的数据通过Cache_0标记“正在被修改”，如果标记成功，则继续往下走,那如果标记失败，则要放弃这次修改。
+
+
+~~缓存穿透：每次请求直接穿透缓存层，直接查询数据库中，给数据库带来了巨大访问压力，甚至宕机。
+    原因：
+        访问数据会先访问缓存，如果数据不存在缓存中才会查询数据库，
+        但是如果查询数据库也查询不出来数据，也是说当前访问数据永远不会写入缓存中。这样就导致了，访问一定不存在的数据，
+        就相当于缓存层形同虚设，每次请求都会到db层，造成数据库负担过大。
+
+    解决方法：
+        1.对所有可能查询的参数以hash形式存储，在控制层先进行校验，不符合则丢弃。还有最常见的则是采用布隆过滤器，
+        将所有可能存在的数据哈希到一个足够大的bitmap中，一个一定不存在的数据会被这个bitmap拦截掉，
+        从而避免了对底层存储系统的查询压力。
+        2.如果db查询不到数据，保存空对象到缓存层，设置较短的失效时间
+        3.针对业务场景对请求的参数进行有效性校验，防止非法请求击垮db
+
+~~缓存击穿:当某一key失效时，造成大量请求到db层，击垮存储层。
+    原因:
+        为了保证缓存数据的时效性，通常会设置一个失效时间，如果是热点key，高并发时会有海量请求直接越过缓存层到数据库，
+        这样就会给数据库造成的负担增大，设置宕机。
+
+    解决方法
+        1.使用互斥锁，当缓存数据失效时，保证一个请求能够访问到数据库，并更新缓存，其他线程等待并重试；
+        2.缓存数据“永远不过期”，如果缓存数据不设置失效时间的话，就不会存在热点key过期造成了大量请求到数据库。
+        但是，缓存数据就变成“静态数据”，因此当缓存数据快要过期时，采用异步线程的方式提前进行更新缓存数据。
+
+~~缓存雪崩:多个key失效，造成大量请求到db层，导致db层负担过重甚至宕机。或者缓存服务器挂掉，导致大量的请求访问DB数据库。
+    原因：
+        缓存雪崩是指在我们设置缓存时采用了相同的过期时间，导致缓存在某一时刻同时失效，请求全部转发到数据库，最终导致数据库瞬时压力过大而崩溃。
+
+    解决方法：
+        1.在缓存失效后，通过加锁或者队列来控制读数据库写缓存的线程数量。比如对某个key只允许一个线程查询数据和写缓存，
+        其他线程等待。(比如热点key的缓存的构建是需要一定时间的)
+        2.可以通过缓存reload机制，预先去更新缓存，再即将发生大并发访问前手动触发加载缓存
+        3.不同的key，设置不同的过期时间，让缓存失效的时间点尽量均匀
+        4.做二级缓存，或者双缓存策略。A1为原始缓存，A2为拷贝缓存，A1失效时，可以访问A2，A1缓存失效时间设置为短期，
+        A2设置为长期。（Redis 集群）
+        5.熔断
+
+
+~~缓存预热: 缓存预热就是系统上线后，将相关的缓存数据直接加载到缓存系统。
+  这样就可以避免在用户请求的时候，先查询数据库，然后再将数据缓存的问题！用户直接查询事先被预热的缓存数据
+
+~~热数据：是需要被计算节点频繁访问的在线类数据。
+  冷数据：是对于离线类不经常访问的数据，比如企业备份数据、业务与操作日志数据、话单与统计数据。
+
+~~redis读写分离架构
+   
+~~redis主从模式集群
+
+~~redis哨兵模式集群（Sentinel）
+    Sentinel（哨兵）进程的作用：
+	1.监控(Monitoring): 哨兵(sentinel) 会不断地检查你的Master和Slave是否运作正常。
+	2.提醒(Notification)：当被监控的某个Redis节点出现问题时, 哨兵(sentinel) 可以通过 API 向管理员或者其他应用程序发送通知。
+	3.自动故障迁移(Automatic failover)：当一个Master不能正常工作时，哨兵(sentinel) 会开始一次自动故障迁移操作，它会将失效Master的其中一个Slave升级为新的Master, 
+	  并让失效Master的其他Slave改为复制新的Master
+    Sentinel集群之间会互相通信，沟通交流redis节点的状态，做出相应的判断并进行处理
+	主观下线（Subjectively Down， 简称 SDOWN）指的是单个 Sentinel 实例对服务器做出的下线判断。
+	客观下线（Objectively Down， 简称 ODOWN）指的是多个 Sentinel 实例在对同一个服务器做出 SDOWN 判断，
+	  并且通过 SENTINEL is-master-down-by-addr 命令互相交流之后，得出的服务器下线判断。
+	  （一个 Sentinel 可以通过向另一个 Sentinel 发送 SENTINEL is-master-down-by-addr命令来询问对方是否认为给定的服务器已下线。）
+    数据丢失问题
+    （1）异步数据丢失问题：
+          因为master -> slave的复制是异步的，所以可能有部分数据还没复制到slave，master就宕机了，此时这些部分数据就丢失了
+    （2）脑裂问题（两个master）：
+         某个master所在机器突然脱离了正常的网络，跟其他slave机器不能连接，但是实际上master还运行着此时哨兵可能就会认为master宕机了，
+	 然后开启选举，将其他slave切换成了master这个时候，集群里就会有两个master，也就是所谓的脑裂此时虽然某个slave被切换成了master，
+	 但是可能client还没来得及切换到新的master，还继续写向旧master的数据可能也丢失了因此旧master再次恢复的时候，会被作为一个slave挂到新的master上去，
+	 自己的数据会清空，重新从新的master复制数据
+     解决：redis配置文件中有以下两行：至少要有3个slave节点与master保持10秒钟以内的数据同步，否则master就不会接受新的请求，减少数据丢失
+	  min-slaves-to-write 3
+	  min-slaves-max-lag 10
+
+
+~~Redis Cluster集群
+    哈希分区规则
+       hash(key)%N :取模
+       一致性哈希
+       虚拟槽哈希分区（hash slot）：使用分散度良好的哈希函数（例如CRC16）把所有数据映射到一个固定范围的整数集合
+                                     Redis Cluster共16384个槽，公式：slot=CRC16（key）&16383
+				     
+				     采用16384(2^14)而不是2^16的原因：
+					1，在一个节点的心跳包文中，包含着这个节点所有的配置信息。使用16K个槽，需要的内存空间大约是2K。
+					   如果使用65K个槽，那么需要的内存空间是8K。
+					2，reids集群中主节点数量基本不可能超过1000.所以可以保证每个主节点上槽的数量不会太少。
+					3，redis节点的配置信息在通过bitmap存储的。bitmap在传输过程中会进行压缩。而压缩比和（槽的数量/节点数）有关，这个值越大。
+					   压缩比越小。所以如果采用65535个槽，那么压缩率就会比较小。
+
+
+
+~~Redis集群方案
+    1.客户端分片：程序代码根据预先设置的路由规则，直接对多个Redis实例进行分布式访问
+    2.代理分片：将分片工作交给专门的代理程序来做。代理程序接收到来自业务程序的数据请求，根据路由规则，将这些请求分发给正确的Redis实例并返回给业务程序
+        基于Twemproxy的Redis集群方案
+    3. Redis Cluster：Redis Cluster将所有Key映射到16384个Slot中，集群中每个Redis实例负责一部分，业务程序通过集成的Redis Cluster客户端进行操作。
+                      客户端可以向任一实例发出请求，如果所需数据不在该实例中，则该实例引导客户端自动去对应实例读写数据
+    4. Codis：改进Twemproxy无法扩容
+        基于Codis的Redis分布式缓存实现

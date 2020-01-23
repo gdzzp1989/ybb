@@ -1,0 +1,19 @@
+~~基本语法
+  1. 取值(插值)指令
+     ${var}：java中常用的八大基本类型以及我们的String引用类型，freemarker中boolean类型显示时true==yes  false==no
+     ${var!}：对 null 或者不存在的对象进行取值，可以设置默认值，例：${var!'我是默认值'}    即，有值时显示正常值，无值时显示默认值
+     ${封装对象.属性}：对封装对象进行取值，例：${User.name}
+     ${date?String('yyyy-MM-dd')}：对日期格式进行取值，定义Date类型的变量时，java.util.Date无法输出日期，须使用java.sql.Date
+     ${var?html}：转义HTML内容
+     <#assign num = 100 />：定义变量，支持计算和赋值
+     <#list  list集合  as  item>  ${item}  </#list>：对List集合进行取值
+     <#list map?keys as key> ${key}:${map[key]} </#list>：对Map集合进行取值
+  2. 条件判断指令
+     <#if 条件> 输出 </#if>
+     <#if 条件1> 输出 <#elseif 条件2> 输出 <#else> 输出 </#if>
+     <#switch var> <#case 条件1> 输出 <#break> <#case 条件2> 输出 <#break> <#default> 输出 </#switch>
+  3. 自定义函数：实现TemplateMthodModelEx
+  4. 自定义指令：实现TemplateDirectiveModel,<@自定义指令名称 入参(key-value格式) ; 出参(list格式)>运行条件 </@自定义指令名称>
+  5. 常用内建函数
+  6.macro(宏指令)
+  7.function(函数指令)：

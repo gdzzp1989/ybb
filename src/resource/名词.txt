@@ -1,0 +1,185 @@
+~~JNI是Java Native Interface的缩写，它提供了若干的API实现了Java和其他语言的通信（主要是C&C++）
+
+~~JIT编译：可以运行时将字节码编译程本地代码
+
+~~JNDI(Java Naming and Directory Interface，Java命名和目录接口)是一组在Java应用中访问命名和目录服务的API。
+   命名服务将名称和对象联系起来，使得我们可以用名称访问对象。简单的说可以有一个配置文件，那么就可以按名字从库中找到相应的对象
+   在J2EE环境可以用context.lookup(“java:comp/env/XXX”)
+
+
+~~cglib：动态代理框架
+
+~~WebService：分为Restful WebService和Soap WebService
+
+~~~SOAP：简单对象访问协议，soap将信息进行XML的序列化后，再用http协议的方式再打包进行传送，传送的方式还是tcp或者udp
+     SOAP1.1和1.2发布的WebService的主要区别：
+      命名空间:
+           1.1:xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+           1.2:xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
+      HTTP头信息
+           1.1:Content-Type: text/xml; charset=UTF-8
+           1.2:Content-Type: application/soap+xml;charset=UTF-8
+
+
+~~REST：REST 从资源的角度来观察整个网络，分布在各处的资源由URI确定，而客户端的应用通过URI来获取资源的表征。
+        获得这些表征致使这些应用程序转变了其状态。随着不断获取资源的表征，客户端应用不断地在转变着其状态，所谓表征状态转移。
+        如果一个架构符合REST原则，就称它为RESTful架构。
+
+	REST的优点
+	  可以利用缓存Cache来提高响应速度
+	  通讯本身的无状态性可以让不同的服务器的处理一系列请求中的不同请求，提高服务器的扩展性
+	  浏览器即可作为客户端，简化软件需求
+	  相对于其他叠加在HTTP协议之上的机制，REST的软件依赖性更小
+	  不需要额外的资源发现机制
+	  在软件技术演进中的长期的兼容性更好
+
+~~RESTful 简化了 web service 的设计，它不再需要 wsdl ，也不再需要 soap 协议，而是通过最简单的 http 协议传输数据 ( 包括 xml 或 json) 。
+  既简化了设计，也减少了网络传输量
+
+
+~~redis用途
+   缓存
+   保存session，保存session也可用于单点登录
+   可以做定时任务
+   可以实现消息队列：不建议，建议使用mq
+   可以做主数据库，可以持久化（半持久化模式和全持久化模式）
+   做监控中心
+
+~~CORS跨域资源共享：相比JSONP只能实现GET请求，CORS支持所有的请求类型
+                    主要思想就是使用自定义的HTTP头部让浏览器与服务器进行沟通，从而决定响应是成功还是失败，它允许了浏览器向跨源服务器发送请求，从而克服了同源的限制
+		    response.setHeader("Access-Control-Allow-Origin","*")
+
+~~jsoup：是一款Java 的HTML解析器，可直接解析某个URL地址、HTML文本内容（网络爬虫）
+
+
+
+~~开发高并发系统时有三把利器用来保护系统：缓存、降级和限流
+    缓存：
+    降级：当访问量剧增或服务出现问题时或非核心服务影响到核心流程的性能时，系统可以对一些数据进行自动降级，也可以配置开关实现人工降级（屏蔽掉某些功能）
+    限流：可以认为服务降级的一种（Tomcat的最大线程，接口的并发数等）
+
+~~ElasticSearch：基于Lucene的搜索服务器。它提供了一个分布式多用户能力的全文搜索引擎，基于RESTful web接口。
+
+~~swagger：API文档工具，可与Spring Boot集成
+
+~~Netty：基于NIO实现的，异步的网络应用框架，支持tcp,udp,http等
+
+~~MINA：网络应用程序的框架
+
+~~RPC:远程过程调用协议，可以调用本地的函数一样去调远程函数
+      目前典型的RPC实现包括：RMI、Thrift、Hessian、GRPC、Hetty等
+
+~~Dubbo：在众多系统的RPC通信的上层再架一层专门进行RPC通信的协调管理，称之为服务治理框架
+
+
+~~RMI:远程方法调用(Remote Method Invocation)。能够让在客户端Java虚拟机上的对象像调用本地对象一样调用服务端java 虚拟机中的对象上的方法。
+
+~~JMS（java消息服务）：Java消息服务接口，是一套规范的JAVA API 接口，实际应用activeMQ
+                       JMS和消息中间件厂商无关，既然是一套接口规范，就代表这它需要各个厂商进行实现
+
+~~HDFS：Hadoop分布式文件系统
+
+~~JPA：Java持久化规范。它为Java开发人员提供了一种对象/关系映射工具来管理Java应用中的关系数据。Hibernate是它的一种实现
+
+~~tkmybatis：tkmybatis是在mybatis框架的基础上提供了很多工具，让开发更加高效
+
+~~MyBatis-Plus (简称 MP)：是一个 MyBatis 的增强工具
+
+~~XML Schema：定义 XML 文档的合法构建模块
+
+~~JTA：JTA允许应用程序执行分布式事务处理——在两个或多个网络计算机资源上访问并且更新数据
+
+~~lombok：java工具，用于通过注解（@Data）快速构建对象
+
+~~~Feign：更加方便的实现Java HTTP 客户端
+
+~~Socket套接字是TCP/UDP等传输层协议的实现。例如客户端使用TCP协议连接这台服务器的时候，当TCP三次握手成功后，
+       应用程序就会创建一个socket套接字对象（注意，这是还没有进行数据内容的传输）
+       ，当这个TCP连接出现数据传输时，socket套接字就会把数据传输的表现告诉程序员（例如read方法接触阻塞状态）
+
+       TCP用主机的IP地址加上主机上的端口号作为TCP连接的端点，这种端点就叫做套接字（socket）或插口。
+	套接字用（IP地址：端口号）表示。
+	它是网络通信过程中端点的抽象表示，包含进行网络通信必需的五种信息：连接使用的协议，本地主机的IP地址，本地进程的协议端口，远地主机的IP地址，远地进程的协议端口。
+
+
+~~jenkins+gitlab+kubernetes+docker：构建在微服务的架构下自动化集成环境
+
+
+~~Disruptor：并发框架
+
+~~sonar（SonarQube）是一个开源平台,用于管理源代码的质量，它不仅是一个质量数据报告工具，更是代码质量管理平台
+
+~~TPS: 衡量业务层处理性能的重要指标（每秒钟request/事务的处理数量）。业务服务处理一个完整的业务过程，并向上层返回处理结果的过程就是一个 request/事务。那么在一秒钟内整个业务系统能够完成多少个这样的过程，其衡量单位就是TPS。TPS不但和系统架构有很大的关系（特别是业务层和业务通信层的架构祥泰），和物理环境、代码质量的关系也非常密切。
+  PV: 网页浏览数是评价网站流量最常用的指标之一，简称为PV。Page Views中的Page一般是指普通的html网页，也包含php、jsp等动态产生的html内容。注意是完整的显示一个Page成为一个PV。但是一个PV，一般需要多次HTTP请求，以便获取多个静态资源，这是需要注意的。
+  UV: Unique Visitor 一个独立IP，在一个单位时间内（例如一日/一小时）对系统的一个PV请求，成为一个UV（重复的PV不在进行计数）。
+  RUV: Repeat User Visitor 一个独立用户，在一个单位时间内（例如一日/一小时）对系统的一个PV请求，并且重复的访问要进行计数。
+
+
+~~一致性hash算法，求模的方式如果遇到增删节点就无法处理
+
+首先求出memcached服务器（节点）的哈希值，并将其配置到0～232的圆（continuum）上。
+然后采用同样的方法求出存储数据的键的哈希值，并映射到相同的圆上。
+然后从数据映射到的位置开始顺时针查找，将数据保存到找到的第一个服务器上。如果超过232仍然找不到服务器，就会保存到第一台memcached服务器上。
+
+
+
+~~传统rpc技术
+   Webservice/Apache CXf
+   RMI/Spring RMI
+   Hessian
+   Burlap
+   Spring HTTPInvoker
+
+
+~~领域驱动（DDD）：
+
+
+~~DevOps 是一个完整的面向IT运维的工作流，以 IT 自动化以及持续集成（CI）、持续部署（CD）为基础，来优化程式开发、测试、系统运维等所有环节。
+
+~~Siege是一个多线程http负载测试和基准测试工具
+
+~~CDN的全称是Content Delivery Network，即内容分发网络
+
+~~CRM：客户关系管理
+
+
+~~web Hook（钩子）：github的功能，对仓库修改时可以把修改消息主动推送（可以用来配合jenkins自动化集成环境）
+
+~~canal是阿里巴巴旗下的一款开源项目,纯Java开发。基于数据库增量日志解析,提供增量数据订阅&消费,目前主要支持了MySQL
+
+~~MDC是 log4j 和 logback 提供的一种方便在多线程条件下记录日志的功能。MDC 可以看成是一个与当前线程绑定的哈希表，可以往其中添加键值对。
+    MDC 中包含的内容可以被同一线程中执行的代码所访问。当前线程的子线程会继承其父线程中的 MDC 的内容。当需要记录日志时，只需要从 MDC 中获取所需的信息即可。
+    MDC 的内容则由程序在适当的时候保存进去。
+
+~~微服务演变过程：
+    1.使用F5来做服务的负载均衡，使用Excel来记录所有服务在F5的端口地址以及服务实际部署的IP:端口
+    2.Nginx来做服务负载均衡，Nginx的配置由源码仓库统一管理
+    3.SOA，特点是使用了服务总线，服务总线承担了服务的发现、路由、协议转换、安全控制、限流等等。
+    4.RPC，目前主流方式Spring Cloud，使用注册中心
+    5.K8S+容器调度平台，GIT+Jenkins+Kubernetes+Docker+Etcd+confd+Nginx+Glusterfs架构
+    6.ServiceMesh服务网格，
+
+
+~~Jmeter:web压力测试工具
+
+~~postman
+
+~~wireshark:抓包工具
+
+~~sidecar:
+   @EnableSidecar:支持异构平台的微服务
+
+
+~~Sharding-JDBC：轻量级的数据库中间层
+
+~~OLTP，也叫联机事务处理，表示事务性非常高的系统，一般都是高可用的在线系统，以小的事务以及小的查询为主，评估其系统的时候，
+	一般看其每秒执行的Transaction以及Execute SQL的数量。在这样的系统中，单个数据库每秒处理的Transaction往往超过几百个，或者是几千个，
+	Select 语句的执行量每秒几千甚至几万个。典型的OLTP系统有电子商务系统、银行、证券等
+
+~~OLAP，也叫联机分析处理（Online Analytical Processing）系统，有的时候也叫DSS决策支持系统，就是我们说的数据仓库。在这样的系统中，语句的执行量不是考核标准，
+         因为一条语句的执行时间可能会非常长，读取的数据也非常多。所以，在这样的系统中，考核的标准往往是磁盘子系统的吞吐量（带宽），如能达到多少MB/s的流量。
+
+
+~~HMac认证：保证rest接口的安全性
+
+~~TokuDB:超大批量My Sql 插入

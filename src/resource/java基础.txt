@@ -1,0 +1,479 @@
+
+
+~~GC算法
+   判断对象是否回收：
+      引用计数算法：对象添加引用计数器，弊端是可能会死锁，A引用B，B引用A
+      可达性分析算法（主流）：通过一系列的称为“GC Roots”的对象作为起始点，从这些节点开始向下搜索，搜索所走过的路径称为引用链（Reference Chain），
+                             当一个对象到GC Roots没有任何引用链相连时，则证明此对象是不可用的。判定为是可回收的对象。
+   垃圾回收算法：
+     标记-清理算法
+     复制算法
+     标记-整理算法
+     分代收集算法，分为新生代和老年代等，根据各个代的特点进行不同收集算法（标记-清理，标记-整理） 
+
+~~GC Root:指的是垃圾收集器的对象，GC会收集那些不是GC roots且没有被GC roots引用的对象。
+   可作为GC Roots对象的包括如下几种： 
+     a.虚拟机栈(栈桢中的本地变量表)中的引用的对象 
+     b.方法区中的类静态属性引用的对象 
+     c.方法区中的常量引用的对象 
+     d.本地方法栈中JNI的引用的对象
+
+
+~~safepoint：在这个点, 所有GC Root的状态都是已知并且heap里的对象是一致的(heap是静止的, 并且所有活着的对象都可以被找到); 在这个点进行GC时, 所有的线程都需要block住, 这就是(STW)Stop The World.
+
+
+~~垃圾收集器种类：serial，cms,g1 等
+    serial收集器:串行收集器采用单线程stop-the-world的方式进行收集。当内存不足时，串行GC设置停顿标识，待所有线程都进入安全点(Safepoint)时，应用线程暂停，串行GC开始工作，采用单线程方式回收空间并整理内存。
+    ParNew收集器:ParNew收集器其实就是Serial收集器的多线程版本,但能与CMS并行(指多条垃圾收集线程并行工作，但此时用户线程仍然处于等待状态)
+    Parallel Scavenge收集器：新生代收集器，其他和ParNew差不多，但是关注点在吞吐量
+    cms：实现了并发低停顿(指用户线程与垃圾收集线程同时执行（但不一定是并行的，可能会交替执行），用户程序在继续运行，而垃圾收集程序运行于另一个CPU上)
+         基于“标记—清理”算法,会有碎片，可能有很多空间的情况下还full gc
+    g1：(Garbage First)，JDK1.7，不需要其他收集器配合
+        将堆内存分割成不同的区域，并且并发的对其进行垃圾回收（Region）
+	整体上使用了标记-整理算法
+
+~~内存分配和管理策略(java堆GC)
+        新生代（minorGC）
+	  Eden：Java新对象的出生地
+	  From Survivor：上一次GC的幸存者，作为这一次GC的被扫描者。
+	  To Survivor：保留了一次MinorGC过程中的幸存者。
+	老年代（majorGC/fullGC）：主要存放应用程序中生命周期长的内存对象
+	永久代（方法区）：指内存的永久保存区域，主要存放Class和Meta（元数据）的信息,
+	        Class在被加载的时候被放入永久区域。会有OOM异常，java8采用元空间替代（数据存在本地内存中）
+
+
+   对象在新生代（Eden） 分配，没有足够空间，虚拟机发起一次minor GC
+   大对象（很长的字符串或数组）直接进入老年代(PermGen)
+   MinorGC的过程：首先，把Eden和ServivorFrom区域中存活的对象复制到ServicorTo区域
+                 （如果有对象的年龄以及达到了老年的标准，则赋值到老年代区），
+                  同时把这些对象的年龄+1（age计数器，每熬过一次minor GC,age+1）；
+                  然后，清空Eden和ServicorFrom中的对象；最后，ServicorTo和ServicorFrom互换，
+                  原ServicorTo成为下一次GC时的ServicorFrom区。
+
+   MinorGC采用复制算法。
+   MajorGC采用标记-整理算法
+
+   类的元数据信息转移到Metaspace（元空间）的原因是PermGen很难调整。分配多大的空间很难确定，因为PermSize的大小依赖于很多因素，
+   比如JVM加载的class的总数，常量池的大小，方法的大小，而且转移到Metaspace可以最大利用是整个系统内存的可用空间。这样，你将不再会遇到OOM错误
+
+
+~~Linux常用命令
+    top:各个进程的资源占用状态
+    sar:周期性的对内存和cpu使用情况采样
+    vmstat:功能齐全，统计内存，cpu使用情况
+    iostat:提供详细的IO信息
+
+    pidstate:性能监测工具，需下载
+
+~~windows常用命令
+    任务管理器
+    perfmon性能监控工具
+    Process Explorer 需下载
+    pslist 需下载
+
+
+
+~~JDK常用命令
+    javap:根据class字节码文件，反解析出当前类对应的code区（汇编指令）
+    jps:列出java进程
+    jstat:可以查看堆的详细情况
+    jinfo：查看JVM参数
+    jmap：生成堆快照和对象的统计信息
+    jhat：分析jmap的堆快照文件
+    jstack:导出java线程堆栈
+    jstatd：建立本地计算器和远程监控工具通信
+    hprof工具：监控cpu信息和堆信息
+
+~~可视化
+    jconsole
+    Visual VM
+    MAT内存分析工具
+    JProfile工具
+
+
+~~top：查看进程的cpu使用情况（可以看到java的进程号）
+  jps：查看java的进程号
+  jmap -heap pid：查看虚拟机的内存使用情况，新生代老年代的统计信息
+  jmap -histo:live pid > a.txt  查看所有对象的占用情况
+  jmap -dump:format=b,file=heap.bin pid：生成HeapDump文件，利用mat等工具分析
+  jstack pid > b.txt:查看线程运行状态
+    
+
+~~java数据类型
+   基本数据类型（其他方法调用时值不变）
+       数值 
+          整数：byte short int long 
+	  浮点  float double
+       字符 char
+       布尔 boolean
+   引用数据类型
+       类
+       接口
+       数组：数据类型 数组名[][]=new 数据类型 [行][列]
+
+~~基本数据类型
+   int 4字节byte（32bit（位））
+   short 2字节
+   long 8字节
+   byte 1字节，范围：－128～127
+   float 4字节
+   double 8字节
+   char 2字节
+   boolean 1字节（1位）
+
+~~值传递，针对基本数据类型，值不会变
+  引用传递，针对引用数据类型，引用地址不会变
+
+~~异或运算（相同返回0，不同返回1） a^=b等于a=a^b 
+  或（“ | ”）运算，全0为0，其他为1
+  与（“ & ”）运算，全1为1，其他为0
+
+~~带符号右移（“ >> ”），即有符号位时，负数符号位补1，正数符号位补0
+  无符号右移 (“ >>> ”) ，即无论正负数，右移之后符号位均补 0 
+
+~~二进制 正数变对应的负数是取反码（取反加1）
+
+~~ equals()是对两个对象的地址值进行的比较（String 重写）
+   未重写方法的情况下：
+   两个obj，如果equals()相等，hashCode()一定相等。
+　 两个obj，如果hashCode()相等，equals()不一定相等（Hash散列值有冲突的情况，虽然概率很低）。
+
+   规范约定（非强制）改写equals时总是要改写hashcode
+
+~~设计模式的2个原则
+    开放-封闭：对扩展开放，对修改封闭
+    依赖-倒置：都应该依赖于抽象
+
+~~static 关键字
+    可以声明属性，方法，代码块，内部类，导包（静态导入的类的方法可以直接使用）
+
+~~final 关键字
+    final成员变量：要在静态初始化块中指定初始值或者声明该类变量时指定初始值
+    final局部变量:基本数据类型的数据一旦赋值后就不能再次更改,。而对于引用类型变量而言，final只保证这个引用类型变量所引用的地址不会发生改变，但这个对象属性是可以改变的
+    final方法：父类的final方法是不能够被子类重写的，final方法是可以被重载的
+    final类：当一个类被final修饰时，表名该类是不能被子类继承的
+    final的重排序规则和原理
+
+~~设置不可变类的条件
+    使用private和final修饰符来修饰该类的成员变量
+    提供带参的构造器用于初始化类的成员变量；
+    仅为该类的成员变量提供getter方法，不提供setter方法，因为普通方法无法修改fina修饰的成员变量；
+    如果有必要就重写Object类 的hashCode()和equals()方法，应该保证用equals()判断相同的两个对象其Hashcode值也是相等的。
+
+~~内部类访问：外部类.内部类 内部类对象 = 外部类实例.new 内部类();
+
+~~修饰符权限范围
+     public      同一个类    同一个包   不同包的子类    不同包的非子类
+     protected   同一个类    同一个包   不同包的子类    
+     default     同一个类    同一个包   
+     private     同一个类   
+     
+~~方法重写：子类方法的权限只能比父类的大
+
+
+~~抽象类(abstract) extends
+     组成：构造方法，抽象方法，普通方法，常量，变量
+     作为一个模版，可以实现多个接口，子类只能单继承
+   接口(interface) implements
+     组成：常量，抽象方法
+     作为一个标准或一种能力，不能继承抽象类，子类可以继承多个接口
+
+
+     接口中变量默认public static final
+     接口方法默认是public abstract
+
+
+~~1.接口是公开的，里面不能有私有的方法或变量，是用于让别人使用的，而抽象类是可以有私有方法或私有变量的。
+  2.abstract class 在 Java 语言中表示的是一种继承关系，一个类只能使用一次继承关系。但是，一个类却可以实现多个interface，实现多重继承。
+     接口还有标识（里面没有任何方法，如Remote接口）和数据共享（里面的变量全是常量）的作用。
+  3.在abstract class 中可以有自己的数据成员，也可以有非abstarct的成员方法，而在interface中，只能够有静态的不能被修改的数据成员（也就是必须是 static final的，
+     不过在 interface中一般不定义数据成员），所有的成员方法默认都是 public abstract 类型的。
+  4.abstract class和interface所反映出的设计理念不同。其实abstract class表示的是"is-a"关系，interface表示的是"has-a"关系。
+  5.实现接口的一定要实现接口里定义的所有方法，而实现抽象类可以有选择地重写需要用到的方法，一般的应用里，最顶级的是接口，然后是抽象类实现接口，
+    最后才到具体类实现。抽象类中可以有非抽象方法。接口中则不能有实现方法。
+  6.接口中定义的变量默认是public static final 型，且必须给其初值，所以实现类中不能重新定义，也不能改变其值。抽象类中的变量默认是 friendly 型，
+    其值可以在子类中重新定义，也可以在子类中重新赋值。
+
+ 
+
+~~Object主要方法
+    Object()：构造方法
+    equals()：默认比较地址
+    hashCode()
+    toString()
+    getClass()
+    notify()
+    wait();
+
+~~对象引用强度
+    强引用：可以直接访问对象，不会被GC回收，但是可能会内存泄露（一直不释放）
+    软引用：当堆使用率临近阀值，才会回收
+    弱引用：GC发现时就会回收
+    虚引用：和没有任何引用一样
+  
+~~匿名内部类 ：new XX(){方法}
+
+~~实例化类的执行顺序(默认该类及其父类JVM未曾加载过)
+   父类静态代码
+   子类静态代码
+   父类非静态代码
+   父类构造函数
+   子类非静态代码
+   子类构造函数
+
+
+~~finally语句在return（try）语句执行之后 return（try）返回之前执行的。
+  finally块中的return语句会覆盖try块中的return返回。
+  当发生异常后，catch中的return执行情况与未发生异常时try中return的执行情况完全一样。
+  如果rry块中有System.exit(0)（终止Java虚拟机JVM），那么finally不会被执行
+
+
+~~接口的修饰符默认是public static final（推荐）
+
+~~Throwable的2个子类
+      Exception：程序出现的问题，可用try...catch处理
+	运行时异常（可以不处理，由虚拟机接管，如NullPointer,NumberFormat,SQL,ClassCast,IndexOutofBound）
+	受检查异常（必须try...catch）
+      Error：JVM错误，程序无法处理，比如：内存资源不足
+
+~~throws写在方法上，throw可以抛出一个异常
+
+~~泛型(<T>  <K,V>):避免了类转换异常
+
+~~Runtime类可以获取一些java虚拟机的信息
+
+~~Runtime.exec()：可以执行shell/cmd命令
+
+~~ResourceBundle类可以读取配置文件
+
+~~Comparable接口和Comparator接口的不同
+   Comparator位于包java.util下，可以定义在类的外部，compare方法
+   Comparable位于包java.lang下，定义在类的内部，compareTo方法，重新定义比较类型时，需要修改源代码。
+
+~~正则表达式相关：Pattern和Matcher类
+
+~~Collection
+
+   List：可以放重复内容
+     ArrayList：非线程安全，所以多线程环境下会有越界问题，默认ArrayList的长度是10个，扩充1.5倍
+     Vector：线程安全
+       Stack：push，pop
+     LinkedList：链表方式，同时继承了List和Queue，先进先出
+
+   Set：不能放重复内容，靠hashCode()和equals()两个方法区分
+     HashSet：输出的时候无序，非线程安全，可以为null
+     LinkedHashSet
+     SortedSet
+       TreeSet：输出的时候有序(带自动排序，Comparable)，底层TreeMap实现，红黑树
+
+   Queue
+     LinkedBlockingQueue：阻塞队列，采用可重入锁(ReentrantLock)来保证在并发情况下的线程安全，
+        put()：首选。队满是阻塞，offer()：队满时返回false，
+        take()：首选。当队列为空时阻塞poll()：弹出队顶元素，队列为空时，返回空
+     ConcurrentLinkedQueue：非阻塞队列，采用CAS操作，来保证元素的一致性。
+
+ hashtable，HashSet，HashMap重写了equals一定要重写hashCode，否则对象可能会重复(hashcode不一致)，这
+ 三个对象检索的是hashcode
+
+ 集合输出方式：Iterator，Enumeration，foreach(JDK1.5之后新增)
+
+~~集合的快速失败机制"fail-fast":java 集合的一种错误检测机制，在用迭代器遍历一个集合对象时，
+  如果遍历过程中对集合对象的内容进行了修改（增加、删除、修改），则会抛出Concurrent Modification Exception
+  java.util包下的集合类都是快速失败的，不能在多线程下发生并发修改（迭代过程中被修改）。
+
+~~安全失败（fail—safe）： 采用安全失败机制的集合容器，在遍历时不是直接在集合内容上访问的，而是先复制原有集合内容，在拷贝的集合上进行遍历。(例如 CopyOnWriteArrayList)
+                          CopyOnWriterArrayList等
+
+~~Collections工具类，方便操作
+    Collections.synchronizedCollection
+    Collections.synchronizedList
+    Collections.synchronizedSet
+    Collections.synchronizedMap
+
+~~Map
+   HashMap：非线程安全，key和value能为null，初始容量16，扩容增大一倍
+   HashTable：线程安全，key和value不能为null
+   LinkedHashMap：Key和Value都允许空，双向链表，有序，继承HashMap，内部结构：双向链表
+	应用：利用LinkedHashMap实现LRU算法缓存（构造方法accessOrder参数为true：所有的Entry按照访问的顺序排列）
+   TreeMap：可以排序，红黑树
+   WeakHashMap：弱引用map
+   ConcurrentHashMap：分段锁机制
+   IdentityHashMap：key可以重复
+
+   ConcurrentHashMap：根据key.hashcode()定位
+
+~~HashMap的实现原理(数组+链表+红黑树):
+   对key进行hash散列算法定位数组的中存储的位置（用equals方法判断是否重复），存储类型为Entry<K,V>，如果hash碰撞，后续的Entry<K,V>用链表存储
+   链表太长时，数组判断加载因子（默认0.75，16*0.75=12，大于12个就扩容了）进行数组扩容
+   链表太长时(大于8个)转为红黑树存储，由于红黑树时间复杂度为log(n),链表为n/2,所以大于8时，红黑树效率更高
+
+  HashMap进行rehash时会产生get()死锁问题:
+   HashMap在put方法时，都会检查容量有没有超过设定的 thredhold，如果超过，需要增大 Hash 表的尺寸，但是这样一来，整个 Hash 表里的无素都需要被重算一遍。这叫 rehash，
+   在rehash过程中，会新建一个更大尺寸的hash表，把数据从老的Hash表中迁移到新的Hash表中(transfer()函数)，转移的时候是逆序的。假如转移前链表顺序是1->2->3，
+   那么转移后就会变成3->2->1，死锁问题就是因为1->2的同时2->1造成的
+
+
+~~RandomAccessFile：随机读写流，可以指定位置开始读取
+
+~~字符流（Reader/Writer）和字节流(OutputStream/InputStream)的区别
+    字节流是对文件本身进行操作，字符流操作时使用了缓冲区(close/flush之后才生效)
+      字节流更为使用广泛
+    字节流转字符流类：OutputStreamWriter InputStreamReader
+ 
+~~内存操作流(ByteArrayInputStream/ByteArrayOutputStream)：生成一些临时信息，避免删除文件
+
+~~管道流(PipedInputStream/PipedOutputStream)：可以进行两个线程间的通信
+
+~~打印流:字节打印流(PrintStream)和字符打印流(PrintWrier):方便输出内容
+
+~~合并流(SequenceInputStream)：可以将2个文件合并成一个文件
+
+~~压缩流主要类：ZipFile,ZipOutputStream,ZipInputStream,ZipEntry
+
+~~回退流(PushbackInputStream/PushbackReader)：可以把读取的数据退回到输入流的缓冲中
+
+~~IO模型
+同步与异步：描述的是用户线程与内核的交互方式，同步指用户线程发起IO请求后需要等待或者轮询内核IO操作完成后才能继续执行；而异步是指用户线程发起IO请求后仍然继续执行，
+	    当内核IO操作完成后会通知用户线程，或者调用用户线程注册的回调函数。
+阻塞与非阻塞：描述是用户线程调用内核IO操作的方式，阻塞是指IO操作需要彻底完成后才返回到用户空间；而非阻塞是指IO操作被调用后立即返回给用户一个状态值，
+	    无需等到IO操作彻底完成。
+
+linux中5种模型
+  同步：
+    阻塞IO(BIO)：应用程序为了执行这个read操作，会调用相应的一个system call，将系统控制权交给内核，然后就进行等待（这个等待的过程就是被阻塞了），
+		 内核开始执行这个system call，执行完毕后会向应用程序返回响应，应用程序得到响应后，就不再阻塞，并进行后面的工作。
+		（阻塞socket.accept()，java IO）（可使用多线程，线程池优化）
+    非阻塞IO：当用户进程发出read操作时，调用相应的system call，这个system call会立即从内核中返回。但是在返回的这个时间点，内核中的数据可能还没有准备好，也就是说内核只是很快就返回了system call，
+	      只有这样才不会阻塞用户进程，对于应用程序， 虽然这个IO操作很快就返回了，但是它并不知道这个IO操作是否真的成功了，
+	      为了知道IO操作是否成功，应用程序需要主动的循环去问内核。
+		（socket的非阻塞方式，设置timeout参数再加循环）（可使用多线程，线程池优化）
+    IO多路复用：会有一个线程不断去轮询多个socket的状态，只有当socket真正有读写事件时，才真正调用实际的IO读写操作。因为在多路复用IO模型中，
+                只需要使用一个线程就可以管理多个socket，系统不需要建立新的进程或者线程，也不必维护这些线程和进程，并且只有在真正有socket读写事件进行时，才会使用IO资源，
+                所以它大大减少了资源占用，多个进程的IO注册到一个复用器（select）上， select会监听所有注册进来的IO（Java NIO，Netty）
+                适用于连接数目较大但连接时间短的应用，如聊天应用等
+    信号驱动IO：在信号驱动IO模型中，当用户线程发起一个IO请求操作，会给对应的socket注册一个信号函数，然后用户线程会继续执行，
+		当内核数据就绪时会发送一个信号给用户线程，用户线程接收到信号之后，便在信号函数中调用IO读写操作来进行实际的IO请求操作。
+  异步IO：当用户线程发起read操作之后，立刻就可以开始去做其它的事。而另一方面，从内核的角度，当它受到一个asynchronous read之后，它会立刻返回，
+          说明read请求已经成功发起了，因此不会对用户线程产生任何block。然后，内核会等待数据准备完成，然后将数据拷贝到用户线程，当这一切都完成之后，
+	  内核会给用户线程发送一个信号，告诉它read操作完成了。也就说用户线程完全不需要实际的整个IO操作是如何进行的，只需要先发起一个请求，
+	  当接收内核返回的成功信号时表示IO操作已经完成，可以直接去使用数据了
+         （JAVA7 AIO、高性能服务器应用）
+
+   异步I/O和信号驱动I/O的区别：异步I/O意味着通知内核启动某个I/O操作，并让内核在整个操作完成时通知我们。实际的I/O操作是异步的；
+                               而信号驱动I/O是由内核通知我们何时可以启动一个I/O。
+
+~~NIO：原理：reactor（反应器）模式：一种为处理并发服务请求，并将请求提交到一个或者多个服务处理程序的事件设计模式。当客户端请求抵达后，服务处理程序使用多路分配策略，
+				    由一个非阻塞的线程来接收所有的请求，然后派发这些请求至相关的工作线程进行处理
+     通道：双向的,可以异步读写数据,要先读到一个buffer 或者从一个buffer写入，即通道与buffer进行数据交互。
+        FileChannel：从文件中读写数据。　　
+        DatagramChannel：能通过UDP读写网络中的数据。　　
+        SocketChannel：能通过TCP读写网络中的数据。　　
+        ServerSocketChannel：可以监听新进来的TCP连接，像Web服务器那样。对每一个新进来的连接都会创建一个SocketChannel
+     缓冲区:
+        ByteBuffer　　
+	MappedByteBuffer　　
+	CharBuffer　　
+	DoubleBuffer　　
+	FloatBuffer　　
+	IntBuffer　　
+	LongBuffer　　
+	ShortBuffer
+     选择器：相当于一个观察者，用来监听通道感兴趣的事件，一个选择器可以绑定多个通道
+        支持事件
+	  SelectionKey.OP_CONNECT
+	  SelectionKey.OP_ACCEPT
+	  SelectionKey.OP_READ
+	  SelectionKey.OP_WRITE
+	  　
+     多路复用模型
+        select/poll：将 channel 注册到 seletor 上，通过轮询channel是否就绪，将就绪的channel返回。
+        epoll：将channel 注册到 selector 上，基于回调的方式（类似监听者模式），告知selector哪些 channel 已经就绪，然后将就绪的 channel 返回。
+
+     select/poll 和 epoll 性能分析
+        对比 select/poll 和 epoll 我们发现epoll效率更高。
+        如果 select/poll 中注册了大量的 channel，就要不停的轮询每个channel，来判断那些channel已经就绪。而 epoll 则不需要轮询。
+
+     jdk1.4 是使用的 select/poll 模型
+     jdk1.5 以后把select/poll 改为了epoll模型
+
+
+~~Java 访问文件四种方法
+   RandomAccessFile：随机读写流,访问速度较慢
+   FileInputStream：文件输入流,访问速度较慢
+   Buffer：缓冲读取,访问速度较快
+   MappedByteBuffer：内存映射,访问速度最快，可用FileChannel的map方法使用。
+                     但是MappedByteBuffer存在内存占用和文件关闭等不确定问题。
+		     被MappedByteBuffer打开的文件只有在垃圾收集时才会被关闭，而这个点是不确定的。
+
+~~Serializable接口:可以把对象转化成二进制存储，方便传输
+   serialVersionUID:用户自己定义。用来验证JDK版本
+   transient:可以声明哪些属性不被序列化
+  Externalizale接口：可以指定序列化的内容
+
+~~枚举(JDK1.5引入)，默认实现了java.lang.Comparable接口，可以限制一个类对象的产生范围
+
+~~系统内建的Annotation
+   @Override:表示方法覆写
+   @Deprecated:表示方法不赞成使用
+   @SuppressWarnings:压制安全警告，比如类型转化
+   @SafeVarargs (java7新增）：去除“堆污染”警告（堆污染：把一个不带泛型的对象赋给一个带泛型的变量）
+   @Functionlnterface （java8新增）：修饰函数式接口（如果接口中只有一个抽象方法（可以包含多个默认方法或static方法）
+				     ，就是函数式接口。更友好的支持Lambda表达式）
+
+~~自定义注释
+    @Documented  //java doc时生成注释
+    @Inherited //表示一个父类的Annotation是否可以被子类继承
+    @Retention(value=Retentionpolicy.RUNTIME)  //指定Annotation的有效范围，java文件，class文件，jvm
+    @Target(value=ElementType.TYPE) //指定Annotation的使用位置
+
+    处理自定义注解
+      利用反射获取注解属性
+      Spring利用@Aspect切面，@Pointcut("@Annotation(XXX)")拦截，处理自定义日志注解
+      注解处理器AbstractProcessor
+
+~~PreparedStatement和Statement的区别
+   PreparedStatement有预编译功能，重复执行效率高，防止注入，可以设置参数
+   Statement执行的是完整sql
+
+~~CLOB:大文本数据
+  BLOB：二进制数据,图片，电影等
+
+
+~~java自带远程调用：RMI
+   客户端首先查询Registry注册表服务，获得Remote Service的Stub(桩)，然后通过Stub代理Skeleton（骨架）进行正式的请求
+
+
+~~java8新特性
+  lambda表达式：(params) -> statement  简化匿名函数代码
+
+  新增stream（流）：可用于循环集合，集合计算等
+       forEach
+       filter
+       sorted
+  方法引用: 类名::方法名
+  函数式接口:就是一个有且仅有一个抽象方法，但是可以有多个非抽象方法的接口，可以被隐式转换为 lambda 表达式
+     常用内置接口
+        Consumer<T>	代表了接受一个输入参数并且无返回的操作，包含方法 void accept(T t)
+	Supplier<T>	无参数，返回一个结果，包含方法 T get()
+	Function<T,R>	接受一个输入参数，返回一个结果，包含方法 R apply（T t）
+	Predicate<T>	接受一个输入参数，返回一个布尔值结果，包含方法 boolean test（T t）
+  Optional 类：为了解决null安全问题的一个API
+  新时间类
+
+	       
+~~RxJava:基于观察者模式的响应式编程框架,支持异步
+         链式调用: Observable.create(new ObservableOnSubscribe()) //创建一个事件流，参数是我们创建的一个事件源
+			.map(...)//有时我们会需要使用操作符进行变换,map()的作用是将传递的数据类型进行转换，比如调用map()的上游是一个Observable<T>，经过转换以后，会将一个Observable<R>返回给调用链的下游
+			.subscribeOn(Schedulers.io())//指定事件源代码执行的线程,Schedulers.io()是子线程，这里也可以用Schedulers.newThread()，只不过io线程可以重用空闲的线程
+			.observeOn(AndroidSchedulers.mainThread())//指定订阅者代码执行的线程,主线程
+			.subscribe(new Observer())//参数是我们创建的一个订阅者，在这里与事件流建立订阅关系
+
+
+
+   
+
+~~内存对齐:8字节的倍数(64位bit),空对象占用8字节
+
+~~groovy 动态加载
+
+~~Javassist：Java动态编程

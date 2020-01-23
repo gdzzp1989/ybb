@@ -1,0 +1,285 @@
+~~进程：并发执行的程序在执行过程中分配和管理资源的基本单位
+  线程：是进程独立运行的子任务
+
+~~两种实现多线程方式对比
+   Runnable接口的好处
+   方便共享数据（非线程安全）
+   解决java单继承问题
+
+~~线程5种状态
+   new 创建了新的对象
+   runnable 调用start()之后
+   running 获得cpu正在运行
+   dead 执行完run之后
+   blocked 等待/阻塞
+
+~~currentThread():返回代码段正在被哪个线程调用
+  isAlive():判断当前线程是否处于活动状态
+  sleep():让当前的线程休眠，来自Thread类，不释放锁
+
+~~停止线程三种方式
+   run()方法走完
+   stop():过期方法，强制中断线程，不建议使用(造成数据不同步)
+   interrupt() 中断线程，添加标识
+    this.interrupted():测试当前线程是否是中断状态，执行后标识为false
+    this.isInterrupted(): 测试Thread对象是否已经是中断状态，不清除标识
+
+   解决线程已经被interrupt，剩余语句运行的方法：throw InterruptedException() 或return;
+
+~~暂停线程：suspend();resume();suspend不释放锁
+ 
+~~yield():放弃当前CPU资源，让其他任务执行，并不能保证在当前线程调用yield()之后，其它具有相同优先级的线程就一定能获得执行权
+
+~~setPriority():设置线程优先级
+
+~~setDaemon:设置守护线程
+
+~~join()/join(1000):在A线程调用B线程的join方法，A线程等待B线程执行完才继续（等待1000之后开始抢占cpu资源）
+
+~~join():使所属对象正常执行run()中内容，当前线程则进行等待，
+          与synchronized区别：join()内部使用wait()方法等待，synchronized用的是'对象监视器'原理
+
+~~让线程按顺序执行
+   共享变量控制
+   主线程join控制子线程
+   new SingleThreadExecutor()
+
+~~synchronized方法:
+ 底层实现：监视器锁（monitor），进入时，执行 monitorenter，将计数器 +1，释放锁 monitorexit 时，计数器-1；
+ 当一个线程判断到计数器为 0 时，则当前锁空闲，可以占用；反之，当前线程进入等待状态
+
+    如果一个对象有一个synchronized方法，A线程调用时，其他线程可以调用对象中非synchronized方法，
+    不可以同时调用另一个synchronized方法
+
+    synchronized代码块:可以解决synchronized方法效率的问题
+    synchronized(this){}:锁对象，其他线程不能调用其他synchronized方法或代码块
+    synchronized(any){}：锁其他，其他线程能调用其他synchronized方法或代码块，any如果改变，那么相当于锁了2个对象锁
+    
+    synchronized锁static或class获得的是class锁，和对象锁不一样(synchronized方法),同一个对象中不同锁的方法可以异步调用
+    class锁对类的所有对象实例起作用
+
+~~volatile:解决变量在多个线程之间的可见性，强制从公共堆栈中取值
+            ，不能保证程序的原子性(线程A读取变量X，但未操作，线程B读取X，此时X为旧值)，禁止指令重排序（DCL模式下的应用）
+    
+   synchronized：解决多个线程之间访问资源的的同步性
+
+   volatile底层实现原理：有volatile的代码转成汇编会有lock前缀的指令（内存屏障）,
+                         lock前缀的指令:1.会回写处理器缓存到系统内存
+			                2.其他处理的缓存地址无效(z只在写操作之后)
+			 ，这样就保证了读取时能读取到最新修改的值
+
+
+  实例化一个对象其实可以分为三个步骤，（1）分配内存空间。（2）初始化对象。（3）将内存空间的地址赋值给对应的引用。
+  但是由于操作系统可以对指令进行重排序，所以上面的过程也可能会变成如下过程：（1）分配内存空间。（2）将内存空间的地址赋值给对应的引用。（3）初始化对象
+
+~~检查死锁：jstack命令
+
+~~多线程产生死锁的 4 个必要条件？
+   互斥条件：一个资源每次只能被一个线程使用；
+   请求与保持条件：一个线程因请求资源而阻塞时，对已获得的资源保持不放；
+   不剥夺条件：进程已经获得的资源，在未使用完之前，不能强行剥夺；
+   循环等待条件：若干线程之间形成一种头尾相接的循环等待资源关系。
+
+~~如何避免死锁：指定获取锁的顺序
+
+
+~~jdk1.6以后对synchronized锁做了优化
+   自旋锁：为了减少线程状态改变带来的消耗 不停地执行当前线程 
+   锁消除：不可能存在共享数据竞争的锁进行消除(方法内部的参数进行同步操作)
+   锁粗化：将连续的加锁精简到只加一次锁（连续synchronized方法调用）
+   轻量级锁：无竞争条件下 通过CAS消除同步互斥（自旋CAS）（针对竞争锁对象的线程不多，而且线程持有锁的时间也不长的情景）
+   偏向锁：无竞争条件下 消除整个同步互斥，连CAS都不操作。（实际上大部分情况都是一个线程多次获得同一个锁，所以引入）
+
+~~synchronized原理
+   锁对象的对象头中Mark Word的结构（对象实例由对象头、实例数据组成）
+        是否偏向锁（前30bit中）：0/1 （只有无锁和偏向锁有此标志位，轻量级锁和重量级锁30bit存的都是指向锁的指针）
+	锁标志位（2bit）：01(无锁，偏向锁)  00（轻量级锁） 01（重量级锁）
+
+	线程访问同步代码块，对象为无锁状态（0 01），使用cas替换threadID，替换成功，变为偏向锁（1 01），执行同步代码
+
+	当线程再次访问同步代码块，比较threadID，如果一致，执行同步代码，如果不一致，查看对象头中记录的线程是否存活，
+	如果没有存活，那么锁对象被重置为无锁状态，再次竞争使用cas替换threadID将其设置为自己的偏向锁
+	如果存活，那么立刻查找该线程的栈帧信息，如果还是需要继续持有这个锁对象，那么暂停占有锁的线程，撤销偏向锁，升级为轻量级锁（00）
+
+	升级轻量级锁时会先把锁对象的对象头MarkWord复制一份到线程的栈帧中创建的用于存储锁记录的空间（称为DisplacedMarkWord），
+	然后使用CAS把对象头中的内容替换为线程的锁记录地址，如果在线程复制对象头的同时，另一个线程2也准备获取锁，复制了对象头到自己的锁记录空间中，
+	但是在线程2 CAS的时候，发现已经有线程把对象头换了，线程2的CAS失败，那么线程2就尝试使用自旋锁来等待线程1释放锁。
+
+	自旋失败就膨胀为重量级锁
+
+
+	锁可以升级不可以降级，但是偏向锁状态可以被重置为无锁状态
+
+	
+~~java锁的分类
+   乐观锁：认为读多写少，每次去拿数据不会上锁，但是在更新的时候会判断版本号，java的CAS算法
+     自旋锁:如果持有锁的线程能在很短时间内释放锁资源,等待的线程可以占着CPU的资源不释放，等到获取到锁立即进行处理，避免cpu切换的消耗
+     轻量级锁
+     偏向锁
+   悲观锁：认为写多，每次在读写数据的时候都会上锁，Synchronized
+     重量级锁：Synchronized（Synchronized是非公平锁）
+     
+
+~~wait()/wait(long):使当前执行代码的线程进行等待，继承Object，必须获得对象级别锁（等于必须在同步块中调用），执行之后释放锁
+  notify()/notifyAll():也必须获得对象级别锁（等于必须在同步块中调用），notify()执行后不立即释放锁，同步方法执行完之后才释放锁
+
+~~ 管道流进行线程间的通信
+  PipedInputStream-PipedOutputStream
+  PipedReader-PipedWriter
+
+
+
+~~ThreadLocal:使每个线程有自己的私有数据
+    -get():获取值
+    -set():设置值
+    继承ThreadLocal：initialValue():设置初始值
+ 
+~~InheritableThreadLocal:可以在子线程获得父线程继承的值
+    
+~~LOCK相比synchronized的优点
+   
+~~LOCK实现原理：队列同步器AbstractQueuedSynchronizer
+
+~~LOCK公平锁：线程获取锁的顺序是按照线程的顺序
+   LOCK非公平锁：锁的抢占是随机的
+
+~~ReentrantLock：重入锁
+
+~~ReentrantReadWriteLock:读写锁
+     读锁(共享) ReentrantReadWriteLock.readLock.lock(); 可以在没有写锁的时候被多个线程同时持有
+     写锁(排他) ReentrantReadWriteLock.writeLock.lock();每次只能有一个写线程，但是可以有多个线程并发地读数据
+
+~~tryLock()方法是有返回值的，它表示用来尝试获取锁，如果获取成功，则返回true，如果获取失败（即锁已被其他线程获取），则返回false，
+  这个方法无论如何都会立即返回。在拿不到锁时不会一直在那等待。
+
+~~基于LOCK接口的生产者/消费者
+
+~~LockSupport.park()/LockSupport.unpark() ：实现阻塞线程和解除线程阻塞
+
+~~减少线程上下文切换的方法
+   无锁并发编程：将数据的ID按照Hash算法分段
+   CAS算法：java的Atomic包使用CAS算法更新数据
+         (Compare and swap:一个内存地址V，一个期望的值A和一个新值B，
+	  操作的时候如果这个地址上存放的值等于这个期望的值A，则将地址上的值赋为新值B，否则不做任何操作)
+   使用最少线程
+   协程
+
+~~CAS算法的缺点
+    循环时间长开销很大。
+    只能保证一个共享变量的原子操作。
+    ABA问题
+
+~~重排序:编译器优化重排序，指令级并行重排序，内存系统重排序
+
+~~顺序一致性：理论参考模型
+    一个线程中的所有操作必须按照程序的顺序来执行。 
+   （不管程序是否同步）所有线程都只能看到一个单一的操作执行顺序。在顺序一致性内存模型中，每个操作都必须原子执行且立刻对所有线程可见。
+
+~~happens-before规则:满足happens-before，则一个操作执行的结果需要对另一个操作可见
+   规则：锁
+         volatile
+         等
+
+~~as-if-serial:不管怎么重排序，程序（单线程）的执行结果不能被改变（不会对依赖关系的操作重排序）
+
+~~ConcurrentHashMap原理（HashMap可能会有环形数据,HashTable效率低）
+    get方法不加锁，因为变量定义了volatile
+    put方法加锁，分两步，第一步判断是否需要扩容，第二步散列存储
+    
+    JDK1.7，ConcurrentHashMap采用锁分段技术（Segment数组，每个Segment的结构类似hashmap），通过继承ReentrantLock来进行加锁
+    JDK1.8，取消了Segment数组，直接使用Node数组，锁node的元素实现并发(CAS + synchronized)，数据结构有数组+单链表变为数组+单链表+红黑树
+            CAS:Node为空的时候，不为空用synchronized
+
+
+~~AQS(AbstractQueuedSynchronizer)定义了一套多线程访问共享资源的同步器框架，看做是一个可以用来实现锁以及其他需要同步功能的框架，
+                                 AQS的使用依靠继承来完成，子类通过继承自AQS并实现所需的方法来管理同步状态，许多同步类实现都依赖于它，
+   如常用的ReentrantLock/Semaphore/CountDownLatch等
+
+   结构框架：一个volatile int state（代表共享资源）和一个FIFO线程等待队列，队列中的元素是一个Node类型的节点
+             state变量对不同的子类实现具有不同的意义，如对ReentrantLock来说，它表示加锁的状态：
+   实现：Mutex不可重入的互斥锁，AQS一般定义为内部类使用
+   功能上有独占锁和共享锁两种功能（ReentrantReadWriteLock）
+
+~~线程安全的队列两种实现方式：
+  阻塞算法：入队和出队加锁ArrayBlockingQueue，LinkedBlockingQueue等
+  非阻塞算法：循环CAS的方式实现，ConcurrentLinkedQueue
+
+
+~~Fork/Join 框架：java7提供的并行任务框架，大任务分为子任务（子任务之间存在工作窃取算法）
+  实例：fork方法调用线程处理   Join方法阻塞当前线程并等待获取结果
+
+~~双检查模式的缺点：由于重排序，可能获取null值，采取volatile加强
+
+~~常用多线程工具类
+  CountDownLatch：和join()类似，允许一个或多个线程等待其他线程完成操作，new CountDownLatch(2);， latch.countDown();子线程调用，latch.await();//主线程等待
+  CyclicBarrier(同步屏障)：让一组线程到达一个屏障（也可以叫同步点）时被阻塞，直到最后一个线程到达屏障时，屏障才会
+	开门，所有被屏障拦截的线程才会继续运行。与CountDownLatch相比，多了可以使用reset()方法重置。内部原理：使用了ReentrantLock和Condition两个类
+  Semaphore：用来控制同时访问特定资源的线程数量，它通过协调各个线程，以保证合理的使用公共资源
+  Exchanger：用于进行线程间的数据交换，它提供一个同步点，如果第一个线程先执行exchange()方法，它会一直等待第二个线程也
+        执行exchange方法，当两个线程都到达同步点时，这两个线程就可以交换数据。可用于数据校验，遗传算法
+
+~~CyclicBarrier和CountDownLatch的区别
+   CountDownLatch的计数器只能使用一次，而CyclicBarrier的计数器可以使用reset()方法重置，可以使用多次，所以CyclicBarrier能够处理更为复杂的场景；
+   CyclicBarrier还提供了一些其他有用的方法，比如getNumberWaiting()方法可以获得CyclicBarrier阻塞的线程数量，isBroken()方法用来了解阻塞的线程是否被中断；
+   CountDownLatch允许一个或多个线程等待一组事件的产生，而CyclicBarrier用于等待其他线程运行到栅栏位置
+
+
+~~Executor框架
+    ExecutorService接口
+      ThreadPoolExecutor：线程池的核心实现类（通常使用工厂类Executors来创建，得到ExecutorService接口，例ExecutorService cachedThreadPool = Executors.newCachedThreadPool();）
+         CachedThreadPool创建一个可缓存线程池，如果线程池长度超过处理需要，可灵活回收空闲线程，若无可回收，则新建线程。 
+         FixedThreadPool 创建一个定长线程池，可控制线程最大并发数，超出的线程会在队列中等待。  
+         SingleThreadExecutor 创建一个单线程化的线程池，它只会用唯一的工作线程来执行任务，保证所有任务按照指定顺序(FIFO, LIFO, 优先级)执行
+      ScheduledThreadPoolExecutor：可以在给定的延迟后运行命令，或者定期执行命令。
+         ScheduledThreadPoolExecutor。包含若干个线程的ScheduledThreadPoolExecutor。
+         SingleThreadScheduledExecutor。只包含一个线程的ScheduledThreadPoolExecutor
+      ForkJoinPool：JDK1.7新增
+
+
+    Future接口
+       FutureTask：和ExecutorService配合实现异步计算，实现原理：队列同步器AbstractQueuedSynchronizer
+    Runnable接口：实现Runnable接口的任务线程不能返回结果；
+    Callable接口：实现Callable接口的任务线程能返回执行结果，调用FutureTask.get()方法实现
+
+~~ThreadPoolExecutor构造函数
+    public ThreadPoolExecutor(int corePoolSize,--核心线程数量(最小线程数量)
+                              int maximumPoolSize,--当前线程池允许创建的最大线程数量
+                              long keepAliveTime,--配合使用timeUnit参数，等待时间
+                              TimeUnit unit,
+                              BlockingQueue<Runnable> workQueue,--指定等待等待队列类型（有限，无限）4种
+                              ThreadFactory threadFactory,--自定义的ThreadFactory线程工厂(创建线程)
+                              RejectedExecutionHandler handler)--线程池无法处理任务触发，触发RejectedExecutionHandler接口的实现
+~~ThreadPoolExecutor 执行线程方法
+     execute方法：适用实现了Runnable接口的任务
+     submit方法：适用实现了Callable接口的任务，对于Runnable，则会转化为RunnableAdapter
+
+~~Copy-On-Write：即写时复制的容器。通俗的理解是当我们往一个容器添加元素的时候，不直接往当前容器添加，
+                 而是先将当前容器进行Copy，复制出一个新的容器，然后新的容器里添加元素，
+                 添加完元素之后，再将原容器的引用指向新的容器。(CopyOnWriteArrayList和CopyOnWriteArraySet)
+                 用于读多写少的并发场景，大对象时内存占用大
+
+~~线程组：ThreadGroup
+
+~~Unsafe类:提供了硬件级别的原子操作
+       可以分配内存
+       可以定位对象某字段的内存位置
+       可以将线程挂起与恢复
+       CAS操作
+
+~~lock free：无锁算法，基于CAS
+
+~~原子类
+    基本类型
+      AtomicBoolean
+      AtomicInteger
+      AtomicLong
+    数组
+      AtomicIntegerArray
+      AtomicLongArray
+      AtomicReferenceArray
+    引用类型
+      AtomicReference
+      AtomicReferenceFieldUpdater
+
+
+~~Disruptor：并发框架
